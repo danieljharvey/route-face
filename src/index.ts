@@ -1,29 +1,27 @@
 import * as Koa from 'koa'
 
 import * as C from './ContReader'
+import * as CP from './ContPipe'
+import * as CRE from './ContReaderEither'
 
-const logger = <A>(
-  value: A
-): C.ContReader<Koa.Context, A> =>
-  C.contReader((ctx, next) => {
-    const rt = ctx.response.get('X-Response-Time')
-    console.log(`${ctx.method} ${ctx.url} - ${rt}`)
-    next(value)
-  })
+CRE.pureTest()
+CRE.mapTest()
+CRE.catchTest()
+CRE.apTest()
+CRE.bindTest()
+CRE.altTest()
 
-const responseTime = (): C.ContReader<
-  Koa.Context,
-  string
-> => {
-  const start = Date.now()
-  return C.contReader((ctx, next) => {
-    const ms = Date.now() - start
-    ctx.set('X-Response-Time', `${ms}ms`)
-    next('response time set')
-  })
+type Context = {
+  env: 'test' | 'prod'
+  user: string
 }
 
-const middlewares = C.bindContReader(responseTime(), logger)
+// CP.runContPipePromise(CP.bindContPipe(checkUserName, CP.mapContPipe(a => a `mod` 3 ===0, doubleIt)))
+
+const responseTime = C.pure('time')
+const logger = () => C.pure('poo')
+
+const middlewares = C.bindContReader(responseTime, logger)
 
 const app = new Koa.default()
 
@@ -47,6 +45,7 @@ app.use(async (ctx: Koa.Context, next: Koa.Next) => {
 */
 // response
 
+/*
 app.use(async (ctx: Koa.Context) => {
   const done = await C.runContReaderPromise(
     middlewares,
@@ -54,5 +53,6 @@ app.use(async (ctx: Koa.Context) => {
   )
   ctx.body = done
 })
+*/
 
-app.listen(3000)
+// app.listen(3000)

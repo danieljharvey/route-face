@@ -22,6 +22,11 @@ export const contReader = <Ctx, A>(
 export const pure = <Ctx, A>(a: A): ContReader<Ctx, A> =>
   contReader((_, next) => next(a))
 
+export const fromContext = <Ctx, A>(
+  f: Func1<Ctx, A>
+): ContReader<Ctx, A> =>
+  contReader((ctx, next) => next(f(ctx)))
+
 // run the Cont, ie, pass it a Cont with an A inside, and a callback function
 // that wants that A, and it will pass the A to the callback
 export const runContReader = <Ctx, A>(
