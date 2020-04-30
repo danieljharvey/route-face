@@ -213,12 +213,100 @@ export const altTest = () =>
     console.log
   )
 
-const bimapContReaderEither = <Ctx, E, A, B>(
-  f: (val: R.Result<E, A>) => R.Result<E, B>,
+const bimapContReaderEither = <Ctx, E, G, A, B>(
+  f: (val: R.Result<E, A>) => R.Result<G, B>,
   cont: ContReaderEither<Ctx, E, A>
-): ContReaderEither<Ctx, E, B> =>
+): ContReaderEither<Ctx, G, B> =>
   contReaderEither((ctx, success, failure) =>
     runContReaderEither(cont, ctx, val =>
       R.matchResult(failure, success)(f(val))
     )
+  )
+
+export const bimapTest = () =>
+  runContReaderEither(
+    bimapContReaderEither(
+      R.matchResult(
+        e => R.success(e),
+        a => R.failure(a)
+      ),
+      pure('Dog')
+    ),
+    {},
+    console.log
+  )
+
+export const raceContReaderEither = <Ctx, E, A>(
+  cont: ContReaderEither<Ctx, E, A>,
+  ...conts: ContReaderEither<Ctx, E, A>[]
+): ContReaderEither<Ctx, E, A> =>
+  contReaderEither((ctx, success, failure) => {
+    let hasFinished = false
+    const onSuccess = (a: A) => {
+      if (!hasFinished) {
+        hasFinished = true
+        success(a)
+      }
+    }
+    const onFailure = (e: E) => {
+      if (!hasFinished) {
+        hasFinished = true
+        failure(e)
+      }
+    }
+    ;[cont, ...conts].forEach(c =>
+      runContReaderEither(
+        c,
+        ctx,
+        R.matchResult(onFailure, onSuccess)
+      )
+    )
+  })
+
+export const withDelay = <Ctx, E, A>(
+  delay: number,
+  cont: ContReaderEither<Ctx, E, A>
+) =>
+  contReaderEither<Ctx, E, A>((ctx, success, failure) =>
+    setTimeout(
+      () =>
+        runContReaderEither(
+          cont,
+          ctx,
+          R.matchResult(failure, success)
+        ),
+      delay
+    )
+  )
+
+export const raceTest = () =>
+  runContReaderEither(
+    raceContReaderEither(
+      withDelay(102, pure('dog')),
+      withDelay(101, pure('cat')),
+      withDelay(100, pure('horse'))
+    ),
+    {},
+    console.log
+  )
+
+export const withTimeout = <Ctx, E, A>(
+  timeout: number,
+  error: E,
+  cont: ContReaderEither<Ctx, E, A>
+): ContReaderEither<Ctx, E, A> =>
+  raceContReaderEither(
+    cont,
+    withDelay(timeout, pureFail(error))
+  )
+
+export const timeoutTest = () =>
+  runContReaderEither(
+    withTimeout(
+      100,
+      'oh no',
+      withDelay(200, pure('great job'))
+    ),
+    {},
+    console.log
   )

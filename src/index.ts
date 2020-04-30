@@ -1,58 +1,32 @@
 import * as Koa from 'koa'
 
-import * as C from './ContReader'
-import * as CP from './ContPipe'
 import * as CRE from './ContReaderEither'
+import * as R from './Result'
 
-CRE.pureTest()
-CRE.mapTest()
-CRE.catchTest()
-CRE.apTest()
-CRE.bindTest()
-CRE.altTest()
+// returns the path from the request, split into an array of pieces
+const getSplitPath = CRE.fromContext((ctx: Koa.Context) => {
+  return R.success(ctx.request.path.split('/'))
+})
 
-type Context = {
-  env: 'test' | 'prod'
-  user: string
-}
+// log the entire context
+const logContext = CRE.fromContext(ctx => {
+  console.log(ctx)
+  return R.success(true)
+})
 
-// CP.runContPipePromise(CP.bindContPipe(checkUserName, CP.mapContPipe(a => a `mod` 3 ===0, doubleIt)))
-
-const responseTime = C.pure('time')
-const logger = () => C.pure('poo')
-
-const middlewares = C.bindContReader(responseTime, logger)
+const appLogic = CRE.bindContReaderEither(
+  logContext,
+  _ => getSplitPath
+)
 
 const app = new Koa.default()
 
-/*
-// logger
-
-app.use(async (ctx: Koa.Context, next: Koa.Next) => {
-  await next();
-  const rt = ctx.response.get('X-Response-Time');
-  console.log(`${ctx.method} ${ctx.url} - ${rt}`);
-});
-
-// x-response-time
-
-app.use(async (ctx: Koa.Context, next: Koa.Next) => {
-  const start = Date.now();
-  await next();
-  const ms = Date.now() - start;
-  ctx.set('X-Response-Time', `${ms}ms`);
-});
-*/
-// response
-
-/*
 app.use(async (ctx: Koa.Context) => {
-  const done = await C.runContReaderPromise(
-    middlewares,
+  const done = await CRE.runContReaderEitherPromise(
+    appLogic,
     ctx
   )
   ctx.body = done
 })
-*/
 
-// app.listen(3000)
+app.listen(3000)

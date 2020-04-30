@@ -31,6 +31,8 @@ export const combineResults = <E, A, B>(
     ? value2
     : success([value1.value, value2.value])
 
+const id = <A>(a: A): A => a
+
 export const matchResult = <E, A, B>(
   onFailure: (e: E) => B,
   onSuccess: (a: A) => B
@@ -38,3 +40,5 @@ export const matchResult = <E, A, B>(
   value.type === 'Failure'
     ? onFailure(value.value)
     : onSuccess(value.value)
+
+export const flatten = matchResult(id, id)
