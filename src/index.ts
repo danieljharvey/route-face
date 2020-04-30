@@ -2,6 +2,7 @@ import * as Koa from 'koa'
 
 import * as CRE from './ContReaderEither'
 import * as R from './Result'
+import * as Router from './Router'
 
 // returns the path from the request, split into an array of pieces
 const getSplitPath = CRE.fromContext((ctx: Koa.Context) => {
@@ -9,16 +10,26 @@ const getSplitPath = CRE.fromContext((ctx: Koa.Context) => {
 })
 
 // log the entire context
-const logContext = CRE.fromContext(ctx => {
+const logContext = CRE.fromContext((ctx) => {
   console.log(ctx)
   return R.success(true)
 })
 
 const appLogic = CRE.bindContReaderEither(
   logContext,
-  _ => getSplitPath
+  (_) => getSplitPath
 )
 
+Router.testRouting({
+  method: 'get',
+  path: '/referral/stuff/good/1',
+})
+Router.testRouting({
+  method: 'get',
+  path: '/something/else',
+})
+
+/*
 const app = new Koa.default()
 
 app.use(async (ctx: Koa.Context) => {
@@ -30,3 +41,4 @@ app.use(async (ctx: Koa.Context) => {
 })
 
 app.listen(3000)
+*/

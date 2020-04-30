@@ -310,3 +310,15 @@ export const timeoutTest = () =>
     {},
     console.log
   )
+
+export const chain = <Ctx, E, A>(
+  cont: ContReaderEither<Ctx, E, A>
+) => ({
+  map: <B>(f: (a: A) => B) =>
+    chain(mapContReaderEither(f, cont)),
+  bind: <B>(f: (a: A) => ContReaderEither<Ctx, E, B>) =>
+    chain(bindContReaderEither(cont, f)),
+  alt: (contB: ContReaderEither<Ctx, E, A>) =>
+    chain(altContReaderEither(cont, contB)),
+  done: () => cont,
+})

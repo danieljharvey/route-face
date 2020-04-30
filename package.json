@@ -5,6 +5,9 @@
   "license": "MIT",
   "dependencies": {
     "@types/koa": "^2.11.3",
+    "fp-ts": "^2.5.4",
+    "io-ts": "^2.2.1",
+    "io-ts-types": "^0.5.6",
     "koa": "^2.11.0",
     "koa-router": "^8.0.8",
     "prettier": "^2.0.5",
