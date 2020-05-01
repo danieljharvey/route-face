@@ -2,7 +2,7 @@ import * as Koa from 'koa'
 
 import * as CRE from './ContReaderEither'
 import * as R from './Result'
-import * as Router from './Router'
+import * as Router from './Router2'
 
 Router.testRouting({
   method: 'get',
