@@ -86,6 +86,22 @@ export const runRoute = <
   details: RouteDetails<As>
 ): CRE.Cont<Ctx, E, RouteDetails<Bs>> => route.body(details)
 
+export const appendRoute = <
+  Ctx,
+  E,
+  As extends any[],
+  Bs extends any[],
+  Cs extends any[]
+>(
+  routeA: Route<Ctx, E, As, Bs>,
+  routeB: Route<Ctx, E, Bs, Cs>
+): Route<Ctx, E, As, Cs> =>
+  route(details =>
+    CRE.bind(runRoute(routeA, details), details2 =>
+      runRoute(routeB, details2)
+    )
+  )
+
 // end of Route newtype
 
 export const fromValidator = <
@@ -117,13 +133,15 @@ export const fromValidator = <
 
 type Method = string // todo, sum type
 
-const method = (method: Method) => <Values extends any[]>(
-  details: RouteDetails<Values>
-): CRE.Cont<Request, string, RouteDetails<Values>> =>
-  CRE.fromContext(ctx =>
-    ctx.method === method
-      ? R.success(details)
-      : R.failure(`Did not match ${method}`)
+const method = <Values extends any[]>(
+  method: Method
+): Route<Request, string, Values, Values> =>
+  route(details =>
+    CRE.fromContext(ctx =>
+      ctx.method === method
+        ? R.success(details)
+        : R.failure(`Did not match ${method}`)
+    )
   )
 
 const router: CRE.Cont<
@@ -153,6 +171,13 @@ const pathNumber = <Ctx, Values extends any[]>(): Route<
   Values,
   Cons<number, Values>
 > => fromValidator(NumberFromString)
+
+const pathString = <Ctx, Values extends any[]>(): Route<
+  Ctx,
+  string,
+  Values,
+  Cons<string, Values>
+> => fromValidator(t.string)
 
 //////// examples
 

@@ -47,5 +47,28 @@ describe('Router3', () => {
         done()
       })
     })
+    it('Appends two routes', done => {
+      const routeDetails = R.detailsFromRequest({
+        method: 'Get',
+        path: '/horses/are/good',
+      })
+      const route = R.appendRoute(
+        R.fromValidator(t.literal('horses')),
+        R.fromValidator(t.literal('are'))
+      )
+      const cont = R.runRoute(route, routeDetails)
+      C.run(cont, {}, result => {
+        if (Res.isSuccess(result)) {
+          expect(result.value.values).toEqual([
+            'are',
+            'horses',
+          ])
+          expect(result.value.remainder).toEqual(['good'])
+        } else {
+          expect(true).toBeFalsy()
+        }
+        done()
+      })
+    })
   })
 })
