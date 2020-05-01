@@ -3,6 +3,7 @@ import * as R from './Result'
 import * as t from 'io-ts'
 import { isRight } from 'fp-ts/lib/Either'
 import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
+import { pure } from './Cont'
 type Request = {
   method: string
   path: string
@@ -27,12 +28,10 @@ const emptyRouteDetails = (
 
 const route = <C extends t.Mixed, Values extends any[]>(
   validator: C
-) => (details: RouteDetails<Values>) =>
-  CRE.fromContext<
-    Request,
-    string,
-    RouteDetails<Cons<t.TypeOf<C>, Values>>
-  >(() => {
+): RouteFunc<t.TypeOf<C>, Values> => (
+  details: RouteDetails<Values>
+) =>
+  CRE.fromContext(() => {
     const [firstPath, ...restOfPath] = details.remainder
     const result = validator.decode(firstPath)
     return isRight(result)
@@ -46,13 +45,26 @@ const route = <C extends t.Mixed, Values extends any[]>(
       : R.failure(`Could not match ${firstPath}`)
   })
 
-const router: CRE.ContReaderEither<
+type Method = string // todo, sum type
+
+const method = (method: Method) => <Values extends any[]>(
+  details: RouteDetails<Values>
+): CRE.Cont<Request, string, RouteDetails<Values>> =>
+  CRE.fromContext((ctx) =>
+    ctx.method === method
+      ? R.success(details)
+      : R.failure(`Did not match ${method}`)
+  )
+
+const router: CRE.Cont<
   Request,
   any,
   RouteDetails<[]>
 > = CRE.fromContext((ctx) =>
   R.success(emptyRouteDetails(ctx))
 )
+
+const withRouter = CRE.withCont(router)
 
 export type Prepend<Tuple extends any[], Addend> = ((
   _: Addend,
@@ -79,7 +91,7 @@ const reverseTuple = <A, As extends any[]>(
   ...as: As
 ) => [a, ...as].reverse() as Reverse<Cons<A, As>>
 
-const nice = reverseTuple(1, 2, 'poo')
+// const nice = reverseTuple(1, 2, 'poo')
 
 type Cons<H, T extends any[]> = ((
   h: H,
@@ -91,16 +103,40 @@ type Cons<H, T extends any[]> = ((
 const consTuple = <A, As extends any[]>(a: A, ...as: As) =>
   [a, ...as] as Cons<A, As>
 
-const done = consTuple(100, 'loves', 'dogs')
+// const done = consTuple(100, 'loves', 'dogs')
 
-const more = consTuple(200, ...done)
+// const more = consTuple(200, ...done)
 
-const testRoute = CRE.chain(router)
-  .bind(route(t.literal('referral')))
-  .bind(route(t.literal('stuff')))
-  .bind(route(t.literal('good')))
-  .bind(route(NumberFromString))
-  .bind((details) => {
+// a function that takes RouteDetails
+// and if it's a success, returns RouteDetails with A
+// plonked on the front
+type RouteFunc<A, Values extends any[]> = (
+  details: RouteDetails<Values>
+) => CRE.Cont<
+  Request,
+  string,
+  RouteDetails<Cons<A, Values>>
+>
+
+const pathLit = <S extends string, Values extends any[]>(
+  path: S
+): RouteFunc<S, Values> => route(t.literal(path))
+
+const pathNumber = <Values extends any[]>(): RouteFunc<
+  number,
+  Values
+> => route(NumberFromString)
+
+const referralsRoute = withRouter
+  .and(pathLit('referral'))
+  .and(pathLit('stuff'))
+  .done()
+
+const referralsGood = CRE.withCont(referralsRoute)
+  .and(pathLit('good'))
+  .and(pathNumber())
+  .and(method('get'))
+  .and((details) => {
     const [_ref, _stuff, _good, _num] = reverseTuple(
       ...details.values
     )
@@ -110,5 +146,42 @@ const testRoute = CRE.chain(router)
   })
   .done()
 
+const referralsBad = CRE.withCont(referralsRoute)
+  .and(pathLit('bad'))
+  .and(pathNumber())
+  .and(method('get'))
+  .and((details) => {
+    const [_ref, _stuff, _bad, _num] = reverseTuple(
+      ...details.values
+    )
+    return CRE.pure(
+      `${_ref} - ${_stuff} - ${_bad} - ${_num}`
+    )
+  })
+  .done()
+
+const alt = <Ctx, E, A>(
+  contA: CRE.Cont<Ctx, E, A>,
+  contB: CRE.Cont<Ctx, E, A>
+) => CRE.alt(contA, contB)
+
+const altRoute = withRouter
+  .and(pathLit('posts'))
+  .and(pathLit('bad'))
+  .and(pathNumber())
+  .and((details) => {
+    const [_posts, _bad, _num] = reverseTuple(
+      ...details.values
+    )
+    return CRE.pure(
+      `Looks like we've found ${_num} ${_bad} posts`
+    )
+  })
+  .done()
+
 export const testRouting = (req: Request) =>
-  CRE.runContReaderEither(testRoute, req, console.log)
+  CRE.run<Request, string, string>(
+    alt(referralsGood, alt(referralsBad, altRoute)),
+    req,
+    console.log
+  )
