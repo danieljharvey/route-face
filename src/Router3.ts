@@ -20,6 +20,7 @@ export type Request = {
 
 type RouteDetails<Values extends any[]> = {
   values: Values
+  path: string
   remainder: string[]
 }
 
@@ -28,50 +29,98 @@ export const detailsFromRequest = (
 ): RouteDetails<[]> => {
   const parts = request.path
     .split('/')
-    .filter((a) => a.length > 0)
+    .filter(a => a.length > 0)
   return {
     remainder: parts,
+    path: request.path,
     values: [],
   }
 }
 
 export const emptyRouteDetails: RouteDetails<[]> = {
   values: [],
+  path: '',
   remainder: [],
 }
 
+// Route newtype
+
+export type RouteFn<
+  Ctx,
+  E,
+  As extends any[],
+  Bs extends any[]
+> = (
+  details: RouteDetails<As>
+) => CRE.Cont<Ctx, E, RouteDetails<Bs>>
+
+export type Route<
+  Ctx,
+  E,
+  As extends any[],
+  Bs extends any[]
+> = {
+  type: 'Route'
+  body: RouteFn<Ctx, E, As, Bs>
+}
+
 export const route = <
+  Ctx,
+  E,
+  As extends any[],
+  Bs extends any[]
+>(
+  body: RouteFn<Ctx, E, As, Bs>
+): Route<Ctx, E, As, Bs> => ({
+  type: 'Route',
+  body,
+})
+
+export const runRoute = <
+  Ctx,
+  E,
+  As extends any[],
+  Bs extends any[]
+>(
+  route: Route<Ctx, E, As, Bs>,
+  details: RouteDetails<As>
+): CRE.Cont<Ctx, E, RouteDetails<Bs>> => route.body(details)
+
+// end of Route newtype
+
+export const fromValidator = <
   Ctx,
   C extends t.Mixed,
   Values extends any[]
 >(
   validator: C
-): RouteFunc<Ctx, t.TypeOf<C>, Values> => (
-  details: RouteDetails<Values>
-) =>
-  CRE.fromContext(() => {
-    const [firstPath, ...restOfPath] = details.remainder
-    if (!firstPath) {
-      return R.failure('No path to match')
-    }
-    const result = validator.decode(firstPath)
-    return isRight(result)
-      ? R.success({
-          remainder: restOfPath,
-          values: consTuple(
-            result.right,
-            ...details.values
-          ),
-        })
-      : R.failure(`Could not match ${firstPath}`)
-  })
+): Route<Ctx, string, Values, Cons<t.TypeOf<C>, Values>> =>
+  route(details =>
+    CRE.fromContext(() => {
+      const [firstPath, ...restOfPath] = details.remainder
+      if (!firstPath) {
+        return R.failure('No path to match')
+      }
+      const result = validator.decode(firstPath)
+      return isRight(result)
+        ? R.success({
+            ...details,
+            remainder: restOfPath,
+            values: consTuple(
+              result.right,
+              ...details.values
+            ),
+          })
+        : R.failure(`Could not match ${firstPath}`)
+    })
+  )
 
 type Method = string // todo, sum type
 
 const method = (method: Method) => <Values extends any[]>(
   details: RouteDetails<Values>
 ): CRE.Cont<Request, string, RouteDetails<Values>> =>
-  CRE.fromContext((ctx) =>
+  CRE.fromContext(ctx =>
     ctx.method === method
       ? R.success(details)
       : R.failure(`Did not match ${method}`)
@@ -81,33 +130,33 @@ const router: CRE.Cont<
   Request,
   any,
   RouteDetails<[]>
-> = CRE.fromContext((ctx) =>
+> = CRE.fromContext(ctx =>
   R.success(detailsFromRequest(ctx))
 )
 
 const withRouter = CRE.withCont(router)
 
-// a function that takes RouteDetails
-// and if it's a success, returns RouteDetails with A
-// plonked on the front
-type RouteFunc<Ctx, A, Values extends any[]> = (
-  details: RouteDetails<Values>
-) => CRE.Cont<Ctx, string, RouteDetails<Cons<A, Values>>>
-
+// path item from string literal, ie "posts"
 const pathLit = <
   Ctx,
   S extends string,
   Values extends any[]
 >(
   path: S
-): RouteFunc<Ctx, S, Values> => route(t.literal(path))
+): Route<Ctx, string, Values, Cons<S, Values>> =>
+  fromValidator(t.literal(path))
 
-const pathNumber = <Ctx, Values extends any[]>(): RouteFunc<
+// path item that accepts any number
+const pathNumber = <Ctx, Values extends any[]>(): Route<
   Ctx,
-  number,
-  Values
-> => route(NumberFromString)
+  string,
+  Values,
+  Cons<number, Values>
+> => fromValidator(NumberFromString)
 
+//////// examples
+
+/*
 const referralsRoute = withRouter
   .and(pathLit('referral'))
   .and(pathLit('stuff'))
@@ -117,7 +166,7 @@ const referralsGood = CRE.withCont(referralsRoute)
   .and(pathLit('good'))
   .and(pathNumber())
   .and(method('get'))
-  .and((details) => {
+  .and(details => {
     const [_ref, _stuff, _good, _num] = reverseTuple(
       ...details.values
     )
@@ -131,7 +180,7 @@ const referralsBad = CRE.withCont(referralsRoute)
   .and(pathLit('bad'))
   .and(pathNumber())
   .and(method('get'))
-  .and((details) => {
+  .and(details => {
     const [_ref, _stuff, _bad, _num] = reverseTuple(
       ...details.values
     )
@@ -150,7 +199,7 @@ const altRoute = withRouter
   .and(pathLit('posts'))
   .and(pathLit('bad'))
   .and(pathNumber())
-  .and((details) => {
+  .and(details => {
     const [_posts, _bad, _num] = reverseTuple(
       ...details.values
     )
@@ -166,3 +215,4 @@ export const testRouting = (req: Request) =>
     req,
     console.log
   )
+  */
