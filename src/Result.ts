@@ -42,3 +42,17 @@ export const matchResult = <E, A, B>(
     : onSuccess(value.value)
 
 export const flatten = matchResult(id, id)
+
+// takes list of eithers, returns A[] if all successes or E if not
+export const all = <E, A>(
+  results: Result<E, A>[]
+): Result<E, A[]> =>
+  results.reduce((total, val) => {
+    if (isFailure(total)) {
+      return total
+    }
+    return matchResult<E, A, Result<E, A[]>>(
+      e => failure(e),
+      (a: A) => success([...total.value, a])
+    )(val)
+  }, success<E, A[]>([]))

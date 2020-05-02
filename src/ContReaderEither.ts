@@ -18,6 +18,17 @@ export type Cont<Ctx, E, A> = {
 // constructor function for the above, takes the body function and wraps it up
 export const cont = <Ctx, E, A>(
   body: (
+    success: Func1<A, void>,
+    failure: Func1<E, void>
+  ) => void
+): Cont<Ctx, E, A> => ({
+  type: 'Cont',
+  body: (_, suc, fail) => body(suc, fail),
+})
+
+// constructor function for the above, takes the body function and wraps it up
+export const contRead = <Ctx, E, A>(
+  body: (
     context: Ctx,
     success: Func1<A, void>,
     failure: Func1<E, void>
@@ -30,19 +41,19 @@ export const cont = <Ctx, E, A>(
 // simplest constructor, give it an A, and it gives you a Cont that will
 // return that A on request
 export const pure = <Ctx, E, A>(a: A): Cont<Ctx, E, A> =>
-  cont((_, success) => success(a))
+  cont(success => success(a))
 
 export const pureFail = <Ctx, E, A>(
   e: E
 ): Cont<Ctx, E, A> =>
-  cont((_ctx, _success, failure) => failure(e))
+  cont((_success, failure) => failure(e))
 
 // take a Promise and turn it into a ContReaderEither
 export const fromPromise = <Ctx, E, A>(
   source: (ctx: Ctx) => Promise<A>,
   catcher: (e: any) => E
 ): Cont<Ctx, E, A> =>
-  cont((ctx, success, failure) =>
+  contRead((ctx, success, failure) =>
     source(ctx)
       .then(success)
       .catch(e => failure(catcher(e)))
@@ -52,7 +63,7 @@ export const fromPromise = <Ctx, E, A>(
 export const fromContext = <Ctx, E, A>(
   f: (ctx: Ctx) => R.Result<E, A>
 ): Cont<Ctx, E, A> =>
-  cont((ctx, success, failure) =>
+  contRead((ctx, success, failure) =>
     R.matchResult(failure, success)(f(ctx))
   )
 
@@ -107,7 +118,7 @@ export const ap = <Ctx, E, A, B>(
   contF: Cont<Ctx, E, Func1<A, B>>,
   contA: Cont<Ctx, E, A>
 ): Cont<Ctx, E, B> =>
-  cont((ctx, success, failure) =>
+  contRead((ctx, success, failure) =>
     run(
       contF,
       ctx,
@@ -125,7 +136,7 @@ export const bind = <Ctx, E, A, B>(
   contA: Cont<Ctx, E, A>,
   toContB: (a: A) => Cont<Ctx, E, B>
 ): Cont<Ctx, E, B> =>
-  cont((ctx, success, failure) =>
+  contRead((ctx, success, failure) =>
     run(
       contA,
       ctx,
@@ -144,7 +155,7 @@ export const list = <Ctx, E, A>(
   conts: Cont<Ctx, E, A>[],
   onEmpty: E
 ): Cont<Ctx, E, R.Result<E, A>[]> =>
-  cont((ctx, success, failure) => {
+  contRead((ctx, success, failure) => {
     if (conts.length === 0) {
       return failure(onEmpty)
     }
@@ -167,7 +178,7 @@ export const alt = <Ctx, E, A>(
   contA: Cont<Ctx, E, A>,
   contB: Cont<Ctx, E, A>
 ): Cont<Ctx, E, A> =>
-  cont((ctx, success, failure) =>
+  contRead((ctx, success, failure) =>
     run(
       contA,
       ctx,
@@ -184,7 +195,7 @@ export const altList = <Ctx, E, A>(
   conts: Cont<Ctx, E, A>[],
   onEmpty: E
 ): Cont<Ctx, E, A> =>
-  cont((ctx, success, failure) => {
+  contRead((ctx, success, failure) => {
     let mutableConts = [...conts]
     const firstOne = mutableConts.shift()
     if (!firstOne) {
@@ -210,7 +221,7 @@ export const bimap = <Ctx, E, G, A, B>(
   f: (val: R.Result<E, A>) => R.Result<G, B>,
   contA: Cont<Ctx, E, A>
 ): Cont<Ctx, G, B> =>
-  cont((ctx, success, failure) =>
+  contRead((ctx, success, failure) =>
     run(contA, ctx, val =>
       R.matchResult(failure, success)(f(val))
     )
@@ -220,7 +231,7 @@ export const race = <Ctx, E, A>(
   contA: Cont<Ctx, E, A>,
   ...conts: Cont<Ctx, E, A>[]
 ): Cont<Ctx, E, A> =>
-  cont((ctx, success, failure) => {
+  contRead((ctx, success, failure) => {
     let hasFinished = false
     const onSuccess = (a: A) => {
       if (!hasFinished) {
@@ -243,7 +254,7 @@ export const withDelay = <Ctx, E, A>(
   delay: number,
   contA: Cont<Ctx, E, A>
 ) =>
-  cont<Ctx, E, A>((ctx, success, failure) =>
+  contRead<Ctx, E, A>((ctx, success, failure) =>
     setTimeout(
       () =>
         run(contA, ctx, R.matchResult(failure, success)),
