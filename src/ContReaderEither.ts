@@ -45,7 +45,7 @@ export const fromPromise = <Ctx, E, A>(
   cont((ctx, success, failure) =>
     source(ctx)
       .then(success)
-      .catch((e) => failure(catcher(e)))
+      .catch(e => failure(catcher(e)))
   )
 
 //
@@ -65,8 +65,8 @@ export const run = <Ctx, E, A>(
 ): void =>
   cont.body(
     ctx,
-    (a) => next(R.success(a)),
-    (e) => next(R.failure(e))
+    a => next(R.success(a)),
+    e => next(R.failure(e))
   )
 
 export const runToPromise = <Ctx, E, A>(
@@ -100,7 +100,7 @@ export const map = <Ctx, E, A, B>(
 // Cont with an A (string in this case) inside.
 export const mapTest = () =>
   run(
-    map((a) => a.length, pure('dog')),
+    map(a => a.length, pure('dog')),
     {},
     console.log
   )
@@ -111,8 +111,8 @@ export const catchError = <Ctx, E, A>(
 ): Cont<Ctx, E, A> =>
   bimap(
     R.matchResult(
-      (e) => g(e),
-      (a) => R.success(a)
+      e => g(e),
+      a => R.success(a)
     ),
     cont
   )
@@ -121,10 +121,7 @@ export const catchError = <Ctx, E, A>(
 // Cont with an A (string in this case) inside.
 export const catchErrorTest = () =>
   run(
-    catchError(
-      (e) => R.success('caught'),
-      pureFail('oh no')
-    ),
+    catchError(e => R.success('caught'), pureFail('oh no')),
     {},
     console.log
   )
@@ -165,7 +162,7 @@ export const bind = <Ctx, E, A, B>(
     run(
       contA,
       ctx,
-      R.matchResult(failure, (a) =>
+      R.matchResult(failure, a =>
         run(
           toContB(a),
           ctx,
@@ -177,10 +174,34 @@ export const bind = <Ctx, E, A, B>(
 
 export const bindTest = () =>
   run(
-    bind(pure('dog'), (a) => pure(`Hello, ${a}`)),
+    bind(pure('dog'), a => pure(`Hello, ${a}`)),
     {},
     console.log
   )
+
+// run them all, return a list of passes or failure
+export const list = <Ctx, E, A>(
+  conts: Cont<Ctx, E, A>[],
+  onEmpty: E
+): Cont<Ctx, E, R.Result<E, A>[]> =>
+  cont((ctx, success, failure) => {
+    if (conts.length === 0) {
+      return failure(onEmpty)
+    }
+    let results: R.Result<E, A>[] = []
+    const store = (
+      index: number,
+      result: R.Result<E, A>
+    ) => {
+      results[index] = result
+      if (results.length === conts.length) {
+        return success(results)
+      }
+    }
+    conts.forEach((cont, index) =>
+      run(cont, ctx, result => store(index, result))
+    )
+  })
 
 export const alt = <Ctx, E, A>(
   contA: Cont<Ctx, E, A>,
@@ -191,7 +212,7 @@ export const alt = <Ctx, E, A>(
       contA,
       ctx,
       R.matchResult(
-        (_) =>
+        _ =>
           run(contB, ctx, R.matchResult(failure, success)),
         success
       )
@@ -206,7 +227,7 @@ const bimap = <Ctx, E, G, A, B>(
   contA: Cont<Ctx, E, A>
 ): Cont<Ctx, G, B> =>
   cont((ctx, success, failure) =>
-    run(contA, ctx, (val) =>
+    run(contA, ctx, val =>
       R.matchResult(failure, success)(f(val))
     )
   )
@@ -215,8 +236,8 @@ export const bimapTest = () =>
   run(
     bimap(
       R.matchResult(
-        (e) => R.success(e),
-        (a) => R.failure(a)
+        e => R.success(e),
+        a => R.failure(a)
       ),
       pure('Dog')
     ),
@@ -242,7 +263,7 @@ export const race = <Ctx, E, A>(
         failure(e)
       }
     }
-    ;[contA, ...conts].forEach((c) =>
+    ;[contA, ...conts].forEach(c =>
       run(c, ctx, R.matchResult(onFailure, onSuccess))
     )
   })
@@ -298,17 +319,3 @@ export const withCont = <Ctx, E, A>(
     withCont(alt(cont, contB)),
   done: () => cont,
 })
-
-/*
-export const pipe = <Ctx, E, A, B>(
-  cont: (a: A) => ContReaderEither<Ctx, E, B>
-) => (a: A) => ({
-  map: <C>(f: (b: B) => C) =>
-    chain(mapContReaderEither(f, cont(a))),
-  bind: <C>(f: (b: B) => ContReaderEither<Ctx, E, C>) =>
-    chain(bindContReaderEither(cont(a), f)),
-  alt: (contB: (a: A) => ContReaderEither<Ctx, E, B>) =>
-    chain(altContReaderEither(cont(a), contB(a))),
-  done: () => cont(a),
-})
-*/

@@ -6,6 +6,8 @@
   "dependencies": {
     "@types/jest": "^25.2.1",
     "@types/koa": "^2.11.3",
+    "fast-check": "^1.24.2",
+    "fast-check-io-ts": "^0.4.0",
     "fp-ts": "^2.5.4",
     "io-ts": "^2.2.1",
     "io-ts-types": "^0.5.6",
