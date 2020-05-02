@@ -84,13 +84,19 @@ describe('Router3', () => {
       {}
     )
 
+  const requestAndTextArb = fc.record({
+    name: fc.string(),
+    request: requestArb,
+  })
+
   describe('makeRoute', () => {
     it('A wrapped single route has no effect', () => {
       fc.assert(
-        fc.asyncProperty(requestArb, async req => {
-          const pathA = R.makeRoute(R.pathLit('dog')).done()
-          const pathB = R.pathLit('dog')
-          const routeDetails = R.detailsFromRequest(req)
+        fc.asyncProperty(requestAndTextArb, async val => {
+          const { request, name } = val
+          const pathA = R.makeRoute(R.pathLit(name)).done()
+          const pathB = R.pathLit(name)
+          const routeDetails = R.detailsFromRequest(request)
           const matches = await C.runToPromise(
             C.list(
               [pathA, pathB].map(route =>
