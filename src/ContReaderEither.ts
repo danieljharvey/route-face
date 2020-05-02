@@ -77,11 +77,6 @@ export const runToPromise = <Ctx, E, A>(
     cont.body(ctx, resolve, reject)
   )
 
-// pure('dog') creates a Cont with 'dog' inside, which is then passed to
-// console.log
-export const pureTest = () =>
-  run(pure('dog'), {}, console.log)
-
 // takes a Cont with an A in it, and a function that changes an A to a B, and
 // returns a Cont with a B in it.
 export const map = <Ctx, E, A, B>(
@@ -96,15 +91,6 @@ export const map = <Ctx, E, A, B>(
     thisCont
   )
 
-// a => a.length is our A -> B function (string -> number), pure('dog') is our
-// Cont with an A (string in this case) inside.
-export const mapTest = () =>
-  run(
-    map(a => a.length, pure('dog')),
-    {},
-    console.log
-  )
-
 export const catchError = <Ctx, E, A>(
   g: (e: E) => R.Result<E, A>,
   cont: Cont<Ctx, E, A>
@@ -115,15 +101,6 @@ export const catchError = <Ctx, E, A>(
       a => R.success(a)
     ),
     cont
-  )
-
-// a => a.length is our A -> B function (string -> number), pure('dog') is our
-// Cont with an A (string in this case) inside.
-export const catchErrorTest = () =>
-  run(
-    catchError(e => R.success('caught'), pureFail('oh no')),
-    {},
-    console.log
   )
 
 export const ap = <Ctx, E, A, B>(
@@ -144,16 +121,6 @@ export const ap = <Ctx, E, A, B>(
     )
   )
 
-export const apTest = () =>
-  run(
-    ap(
-      pure((a: string) => a.toUpperCase()),
-      pure('doggy')
-    ),
-    {},
-    console.log
-  )
-
 export const bind = <Ctx, E, A, B>(
   contA: Cont<Ctx, E, A>,
   toContB: (a: A) => Cont<Ctx, E, B>
@@ -170,13 +137,6 @@ export const bind = <Ctx, E, A, B>(
         )
       )
     )
-  )
-
-export const bindTest = () =>
-  run(
-    bind(pure('dog'), a => pure(`Hello, ${a}`)),
-    {},
-    console.log
   )
 
 // run them all, return a list of passes or failure
@@ -219,10 +179,34 @@ export const alt = <Ctx, E, A>(
     )
   )
 
-export const altTest = () =>
-  run(alt(pureFail('Oh no'), pure('yeah')), {}, console.log)
+// run list of alt values
+export const altList = <Ctx, E, A>(
+  conts: Cont<Ctx, E, A>[],
+  onEmpty: E
+): Cont<Ctx, E, A> =>
+  cont((ctx, success, failure) => {
+    let mutableConts = [...conts]
+    const firstOne = mutableConts.shift()
+    if (!firstOne) {
+      return failure(onEmpty)
+    }
+    const tryCont = (cont: Cont<Ctx, E, A>) => {
+      run(
+        cont,
+        ctx,
+        R.matchResult(e => {
+          const nextItem = mutableConts.shift()
+          if (!nextItem) {
+            return failure(e)
+          }
+          return tryCont(nextItem)
+        }, success)
+      )
+    }
+    tryCont(firstOne)
+  })
 
-const bimap = <Ctx, E, G, A, B>(
+export const bimap = <Ctx, E, G, A, B>(
   f: (val: R.Result<E, A>) => R.Result<G, B>,
   contA: Cont<Ctx, E, A>
 ): Cont<Ctx, G, B> =>
@@ -230,19 +214,6 @@ const bimap = <Ctx, E, G, A, B>(
     run(contA, ctx, val =>
       R.matchResult(failure, success)(f(val))
     )
-  )
-
-export const bimapTest = () =>
-  run(
-    bimap(
-      R.matchResult(
-        e => R.success(e),
-        a => R.failure(a)
-      ),
-      pure('Dog')
-    ),
-    {},
-    console.log
   )
 
 export const race = <Ctx, E, A>(
@@ -280,34 +251,12 @@ export const withDelay = <Ctx, E, A>(
     )
   )
 
-export const raceTest = () =>
-  run(
-    race(
-      withDelay(102, pure('dog')),
-      withDelay(101, pure('cat')),
-      withDelay(100, pure('horse'))
-    ),
-    {},
-    console.log
-  )
-
 export const withTimeout = <Ctx, E, A>(
   timeout: number,
   error: E,
   cont: Cont<Ctx, E, A>
 ): Cont<Ctx, E, A> =>
   race(cont, withDelay(timeout, pureFail(error)))
-
-export const timeoutTest = () =>
-  run(
-    withTimeout(
-      100,
-      'oh no',
-      withDelay(200, pure('great job'))
-    ),
-    {},
-    console.log
-  )
 
 export const withCont = <Ctx, E, A>(
   cont: Cont<Ctx, E, A>
