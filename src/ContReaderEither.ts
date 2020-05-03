@@ -132,10 +132,10 @@ export const ap = <Ctx, E, A, B>(
     )
   )
 
-export const bind = <Ctx, E, A, B>(
+export const bind = <Ctx, CtxB, E, A, B>(
   contA: Cont<Ctx, E, A>,
-  toContB: (a: A) => Cont<Ctx, E, B>
-): Cont<Ctx, E, B> =>
+  toContB: (a: A) => Cont<CtxB, E, B>
+): Cont<Ctx & CtxB, E, B> =>
   contRead((ctx, success, failure) =>
     run(
       contA,
@@ -273,8 +273,8 @@ export const withCont = <Ctx, E, A>(
   cont: Cont<Ctx, E, A>
 ) => ({
   map: <B>(f: (a: A) => B) => withCont(map(f, cont)),
-  and: <B>(f: (a: A) => Cont<Ctx, E, B>) =>
-    withCont(bind(cont, f)),
+  and: <B, CtxB>(f: (a: A) => Cont<CtxB, E, B>) =>
+    withCont<Ctx & CtxB, E, B>(bind(cont, f)),
   alt: (contB: Cont<Ctx, E, A>) =>
     withCont(alt(cont, contB)),
   done: () => cont,
