@@ -10,22 +10,22 @@ const requestArb = getArbitrary(R.request)
 
 describe('Router3', () => {
   describe('fromValidator', () => {
-    it('Error message when no paths to match', done => {
+    it('Error message when no paths to match', (done) => {
       const route = R.fromValidator(t.literal('horses'))
       const cont = R.runRoute(route, R.emptyRouteDetails)
-      C.run(cont, {}, result => {
+      C.run(cont, {}, (result) => {
         expect(result.value).toEqual('No path to match')
         done()
       })
     })
-    it('Makes a match', done => {
+    it('Makes a match', (done) => {
       const routeDetails = R.detailsFromRequest({
         method: 'Get',
         path: '/horses/are/good/',
       })
       const route = R.fromValidator(t.literal('horses'))
       const cont = R.runRoute(route, routeDetails)
-      C.run(cont, {}, result => {
+      C.run(cont, {}, (result) => {
         if (Res.isSuccess(result)) {
           expect(result.value.values).toEqual(['horses'])
         } else {
@@ -36,19 +36,19 @@ describe('Router3', () => {
       })
     })
 
-    it('Cannot make a match', done => {
+    it('Cannot make a match', (done) => {
       const routeDetails = R.detailsFromRequest({
         method: 'Get',
         path: '/horses/are/good/',
       })
       const route = R.fromValidator(t.literal('dogs'))
       const cont = R.runRoute(route, routeDetails)
-      C.run(cont, {}, result => {
+      C.run(cont, {}, (result) => {
         expect(Res.isFailure(result)).toBeTruthy()
         done()
       })
     })
-    it('Appends two routes', done => {
+    it('Appends two routes', (done) => {
       const routeDetails = R.detailsFromRequest({
         method: 'Get',
         path: '/horses/are/good',
@@ -58,7 +58,7 @@ describe('Router3', () => {
         R.fromValidator(t.literal('are'))
       )
       const cont = R.runRoute(route, routeDetails)
-      C.run(cont, {}, result => {
+      C.run(cont, {}, (result) => {
         if (Res.isSuccess(result)) {
           expect(result.value.values).toEqual([
             'horses',
@@ -78,7 +78,7 @@ describe('Router3', () => {
   ): Promise<Res.Result<string, R.RouteDetails<Bs>>[]> =>
     C.runToPromise(
       C.list(
-        routes.map(route => R.runRoute(route, details)),
+        routes.map((route) => R.runRoute(route, details)),
         'The list is empty'
       ),
       {}
@@ -92,14 +92,14 @@ describe('Router3', () => {
   describe('makeRoute', () => {
     it('A wrapped single route has no effect', () => {
       fc.assert(
-        fc.asyncProperty(requestAndTextArb, async val => {
+        fc.asyncProperty(requestAndTextArb, async (val) => {
           const { request, name } = val
           const pathA = R.makeRoute(R.pathLit(name)).done()
           const pathB = R.pathLit(name)
           const routeDetails = R.detailsFromRequest(request)
           const matches = await C.runToPromise(
             C.list(
-              [pathA, pathB].map(route =>
+              [pathA, pathB].map((route) =>
                 R.runRoute(route, routeDetails)
               ),
               'The list is empty'
@@ -114,7 +114,7 @@ describe('Router3', () => {
 
     it('Append is equivalent to binding Conts', () => {
       fc.assert(
-        fc.asyncProperty(requestArb, async req => {
+        fc.asyncProperty(requestArb, async (req) => {
           const routeDetails = R.detailsFromRequest(req)
           const withRoute = R.runRoute(
             R.makeRoute(R.pathLit('dog'))
@@ -124,12 +124,13 @@ describe('Router3', () => {
           )
           const withCont = C.bind<
             {},
+            {},
             string,
             R.RouteDetails<['dog']>,
             R.RouteDetails<['dog', 'time']>
           >(
             R.runRoute(R.pathLit('dog'), routeDetails),
-            rd =>
+            (rd) =>
               R.runRoute<
                 {},
                 string,
