@@ -147,8 +147,6 @@ const router: CRE.Cont<
   R.success(detailsFromRequest(ctx))
 )
 
-const withRouter = CRE.withCont(router)
-
 // path item from string literal, ie "posts"
 export const pathLit = <
   Ctx,

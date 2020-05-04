@@ -28,7 +28,7 @@ const myFirstCont: C.Cont<
   unknown,
   unknown,
   string
-> = C.cont(success => success('Hello!'))
+> = C.cont((success) => success('Hello!'))
 
 // what happens though?
 // nothing!
@@ -139,8 +139,8 @@ const dogCont = C.fromPromise(
       .get<DogResponse>(
         `${env.baseUrl}/breed/samoyed/images/random`
       )
-      .then(response => response.data as DogResponse),
-  e => e.message || 'Unknown error'
+      .then((response) => response.data as DogResponse),
+  (e) => e.message || 'Unknown error'
 )
 
 // let's run it...
@@ -173,28 +173,25 @@ const dogByBreedCont = (
   breed: Breed
 ): C.Cont<Env, string, string> =>
   C.fromPromise(
-    env =>
+    (env) =>
       axios
         .get<DogResponse>(getByBreed(env.baseUrl, breed))
-        .then(response =>
+        .then((response) =>
           response.data.status === 'success'
             ? Promise.resolve(response.data.message)
             : Promise.reject('Dog API did not succeed')
         ),
-    e => e.message
+    (e) => e.message
   )
 
 // Why stop at one dog?
 // We can do a whole bunch of them!
-const manyBreeds = C.map(
-  Res.all,
-  C.list(
-    (['pug', 'samoyed', 'shiba', 'whippet'] as Breed[]).map(
-      dogByBreedCont
-    ),
-    'Empty list'
-  )
-)
+const manyBreeds = C.list(
+  dogByBreedCont('pug'),
+  dogByBreedCont('samoyed'),
+  dogByBreedCont('shiba'),
+  dogByBreedCont('whippet')
+).map(Res.all)
 
 C.run(manyBreeds, defaultEnv, console.log)
 // if it goes wrong we get the first error:

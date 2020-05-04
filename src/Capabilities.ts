@@ -131,14 +131,13 @@ const allCommands = (data: WithAuthToken) =>
     ...userAction,
   })
 
-const bigCommand = C.withCont(withGetUser(100))
-  .and(withLog(`Looks like we've found it.`))
+const bigCommand = withGetUser(100)
+  .bind(withLog(`Looks like we've found it.`))
   .map((user) => ({
     ...user,
     name: user.name.toUpperCase(),
   }))
-  .and(withSaveUser)
-  .done()
+  .bind(withSaveUser)
 
 C.run(
   bigCommand,

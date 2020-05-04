@@ -72,18 +72,6 @@ describe('Router3', () => {
     })
   })
 
-  const runMany = <As extends any[], Bs extends any[]>(
-    routes: R.Route<{}, As, Bs>[],
-    details: R.RouteDetails<As>
-  ): Promise<Res.Result<string, R.RouteDetails<Bs>>[]> =>
-    C.runToPromise(
-      C.list(
-        routes.map((route) => R.runRoute(route, details)),
-        'The list is empty'
-      ),
-      {}
-    )
-
   const requestAndTextArb = fc.record({
     name: fc.string(),
     request: requestArb,
@@ -99,10 +87,8 @@ describe('Router3', () => {
           const routeDetails = R.detailsFromRequest(request)
           const matches = await C.runToPromise(
             C.list(
-              [pathA, pathB].map((route) =>
-                R.runRoute(route, routeDetails)
-              ),
-              'The list is empty'
+              R.runRoute(pathA, routeDetails),
+              R.runRoute(pathB, routeDetails)
             ),
             {}
           )
@@ -140,7 +126,7 @@ describe('Router3', () => {
           )
 
           const matches = await C.runToPromise(
-            C.list([withRoute, withCont], 'Empty list'),
+            C.list(withRoute, withCont),
             {}
           )
           expect(matches[0]).toEqual(matches[1])
