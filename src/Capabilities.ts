@@ -78,7 +78,7 @@ interface WithUser {
 const withGetUser = (userId: number) =>
   C.fromPromise<Capability<WithUser>, string, User>(
     ({ actions }) => actions.getUser(userId),
-    e => 'Error fetching user!'
+    (e) => 'Error fetching user!'
   )
 
 type WithAuthToken = {
@@ -93,7 +93,7 @@ const withSaveUser = (user: User) =>
   >(
     ({ actions, data }) =>
       actions.saveUser(data.authToken, user),
-    e => `Error saving user ${user.name}`
+    (e) => `Error saving user ${user.name}`
   )
 
 // actions for testing
@@ -133,7 +133,10 @@ const allCommands = (data: WithAuthToken) =>
 
 const bigCommand = C.withCont(withGetUser(100))
   .and(withLog(`Looks like we've found it.`))
-  .map(user => ({ ...user, name: user.name.toUpperCase() }))
+  .map((user) => ({
+    ...user,
+    name: user.name.toUpperCase(),
+  }))
   .and(withSaveUser)
   .done()
 

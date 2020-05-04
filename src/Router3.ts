@@ -4,7 +4,7 @@ import * as t from 'io-ts'
 import { isRight } from 'fp-ts/lib/Either'
 import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
 
-import { Push, pushTuple } from './Tuple2'
+import { Push, pushTuple } from './Tuple'
 
 export const request = t.type({
   method: t.string,
@@ -19,7 +19,7 @@ export type RouteDetails<Values extends any[]> = {
 }
 
 const splitUrl = (whole: string): string[] =>
-  whole.split('/').filter(a => a.length > 0)
+  whole.split('/').filter((a) => a.length > 0)
 
 export const detailsFromRequest = (
   request: Request
@@ -83,8 +83,8 @@ export const appendRoute = <
   routeA: Route<Ctx, As, Bs>,
   routeB: Route<Ctx, Bs, Cs>
 ): Route<Ctx, As, Cs> =>
-  route(details =>
-    CRE.bind(runRoute(routeA, details), details2 =>
+  route((details) =>
+    CRE.bind(runRoute(routeA, details), (details2) =>
       runRoute(routeB, details2)
     )
   )
@@ -103,7 +103,7 @@ export const fromValidator = <
 >(
   validator: C
 ): Route<Ctx, Values, Push<t.TypeOf<C>, Values>> =>
-  route(details =>
+  route((details) =>
     CRE.fromContext(() => {
       const matchPath = urlPart(
         details.path,
@@ -131,8 +131,8 @@ type Method = string // todo, sum type
 export const method = <Values extends any[]>(
   method: Method
 ): Route<Request, Values, Values> =>
-  route(details =>
-    CRE.fromContext(ctx =>
+  route((details) =>
+    CRE.fromContext((ctx) =>
       ctx.method === method
         ? R.success(details)
         : R.failure(`Did not match ${method}`)
@@ -143,7 +143,7 @@ const router: CRE.Cont<
   Request,
   any,
   RouteDetails<[]>
-> = CRE.fromContext(ctx =>
+> = CRE.fromContext((ctx) =>
   R.success(detailsFromRequest(ctx))
 )
 
@@ -183,6 +183,7 @@ export const makeRoute = <
     makeRoute(
       appendRoute<Ctx, As, Bs, Cs>(routeAB, routeBC)
     ),
+
   done: () => routeAB,
 })
 
@@ -193,9 +194,8 @@ export const makeRoute = <
 //////// examples
 
 /*
-const referralsRoute = withRouter
-  .and(pathLit('referral'))
-  .and(pathLit('stuff'))
+const referralsRoute = makeRoute(pathLit('referral'))
+  .append(pathLit('stuff'))
   .done()
 
 const referralsGood = CRE.withCont(referralsRoute)
