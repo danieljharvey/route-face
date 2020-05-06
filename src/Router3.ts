@@ -1,6 +1,6 @@
-import * as R from './Result'
 import * as t from 'io-ts'
-import { isLeft } from 'fp-ts/lib/Either'
+import * as E from 'fp-ts/lib/Either'
+import * as Res from './Result'
 import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
 
 import { Push, pushTuple } from './Tuple'
@@ -11,7 +11,7 @@ type Route<
   ValuesOut extends any[]
 > = (
   input: RouteDetails<ValuesIn>
-) => R.Result<string, RouteDetails<ValuesOut>>
+) => Res.Result<string, RouteDetails<ValuesOut>>
 
 // a route that does not add new types
 type SameRoute<Values extends any[]> = Route<Values, Values>
@@ -41,6 +41,10 @@ export type RouteDetails<Values extends any[]> = {
   }
 }
 
+export const getFoundPath = <Values extends any[]>(
+  routeDetails: RouteDetails<Values>
+): Values => routeDetails.found.values
+
 const splitUrl = (whole: string): string[] =>
   whole.split('/').filter((a) => a.length > 0)
 
@@ -66,25 +70,23 @@ const urlPart = (
   index: number
 ): string | null => splitUrl(whole)[index] || null
 
-export const fromValidator = <C extends t.Mixed>(
+export const fromValidator = <
+  C extends t.Mixed,
+  Values extends any[]
+>(
   validator: C
-) => <Values extends any[]>(
-  input: RouteDetails<Values>
-): R.Result<
-  string,
-  RouteDetails<Push<t.TypeOf<C>, Values>>
-> => {
+): AddToRoute<Values, t.TypeOf<C>> => (input) => {
   const matchPath = urlPart(
     input.search.path,
     input.found.values.length
   )
   if (!matchPath) {
-    return R.failure('No path to match')
+    return Res.failure('No path to match')
   }
   const result = validator.decode(matchPath)
-  return isLeft(result)
-    ? R.failure(`Could not match ${matchPath}`)
-    : R.success({
+  return E.isLeft(result)
+    ? Res.failure(`Could not match ${matchPath}`)
+    : Res.success({
         ...input,
         found: {
           ...input.found,
@@ -102,8 +104,8 @@ export const method = <Values extends any[]>(
   method: Method
 ): SameRoute<Values> => (input) =>
   input.search.method === method
-    ? R.success(input)
-    : R.failure(`Did not match ${method}`)
+    ? Res.success(input)
+    : Res.failure(`Did not match ${method}`)
 
 // path item from string literal, ie "posts"
 export const pathLit = <
