@@ -5,14 +5,16 @@ import { getArbitrary } from 'fast-check-io-ts'
 import fc from 'fast-check'
 
 const myRoute = R.makeRoute
-  .then(t.literal('dog'))
-  .then(t.number)
-  .then(t.literal('bog'))
+  .path('dog')
+  .number()
+  .path('bog')
   .done()
 
 type MyRoute = R.RouteTypes<typeof myRoute>
 
-const myRouteArb = getArbitrary(t.tuple(myRoute.pieces))
+const myRouteArb = getArbitrary(
+  t.tuple(myRoute.pieces) as any
+)
 
 describe('Router4', () => {
   it('Creates arbitrary valid endpoints', () => {

@@ -51,9 +51,4 @@ describe('Router3', () => {
       )
     })
   })
-
-  const requestAndTextArb = fc.record({
-    name: fc.string(),
-    request: requestArb,
-  })
 })

@@ -3,6 +3,14 @@ import { Push, pushTuple } from './Tuple'
 import * as Res from './Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
+import {
+  NumberFromString,
+  NumberFromStringC,
+} from 'io-ts-types/lib/NumberFromString'
+import {
+  NonEmptyString,
+  NonEmptyStringC,
+} from 'io-ts-types/lib/NonEmptyString'
 
 type FromCodec<T> = T extends t.Mixed ? T : never
 
@@ -44,12 +52,15 @@ export const route = <Pieces extends t.Mixed[]>(
   pieces,
 })
 
+/////
+
 export const empty = route([])
 
 export const pure = <S extends t.Mixed>(
   newPart: S
 ): Route<[S]> => route([newPart])
 
+// add any io-ts validator
 export const add = <
   Pieces extends t.Mixed[],
   S extends t.Mixed
@@ -61,12 +72,39 @@ export const add = <
   pieces: pushTuple(newPart, ...oldRoute.pieces),
 })
 
-const createRoute = <Start extends t.Mixed[]>(
+// path item from string literal, ie "posts"
+export const path = <
+  Pieces extends t.Mixed[],
+  Str extends string
+>(
+  oldRoute: Route<Pieces>,
+  path: Str
+): Route<Push<t.LiteralC<Str>, Pieces>> =>
+  add(oldRoute, t.literal(path))
+
+// path item that accepts any number
+export const number = <Pieces extends t.Mixed[]>(
+  oldRoute: Route<Pieces>
+): Route<Push<NumberFromStringC, Pieces>> =>
+  add(oldRoute, NumberFromString)
+
+export const string = <Pieces extends t.Mixed[]>(
+  oldRoute: Route<Pieces>
+): Route<Push<NonEmptyStringC, Pieces>> =>
+  add(oldRoute, NonEmptyString)
+
+///
+
+export const extendRoute = <Start extends t.Mixed[]>(
   route: Route<Start>
 ) => ({
-  then: <S extends t.Mixed>(next: S) =>
-    createRoute(add(route, next)),
+  custom: <S extends t.Mixed>(next: S) =>
+    extendRoute(add(route, next)),
+  path: <Str extends string>(pathStr: Str) =>
+    extendRoute(path(route, pathStr)),
+  number: () => extendRoute(number(route)),
+  string: () => extendRoute(string(route)),
   done: () => route,
 })
 
-export const makeRoute = createRoute(empty)
+export const makeRoute = extendRoute(empty)
