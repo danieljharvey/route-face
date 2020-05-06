@@ -22,9 +22,9 @@ describe('Router3', () => {
       })
       const route = R.fromValidator(t.literal('horses'))
 
-      expect(route(routeDetails).found.values).toEqual(
-        E.right(['horses'])
-      )
+      expect(
+        Res.map(route(routeDetails), R.getFoundPath)
+      ).toEqual(Res.success(['horses']))
     })
 
     it('Cannot make a match', () => {
@@ -34,24 +34,21 @@ describe('Router3', () => {
       })
       const route = R.fromValidator(t.literal('dogs'))
 
-      expect(E.isLeft(route(routeDetails))).toBeTruthy()
+      expect(Res.failure(route(routeDetails))).toBeTruthy()
     })
     it('Appends two routes', () => {
       const routeDetails = R.detailsFromRequest({
         method: 'Get',
         path: '/horses/are/good',
       })
-      const route = pipe(
-        E.right(routeDetails),
-        E.chain(R.fromValidator(t.literal('horses'))),
-        E.chain(R.fromValidator(t.literal('are')))
+      const route = Res.bind(
+        R.fromValidator(t.literal('horses'))(routeDetails),
+        R.fromValidator(t.literal('are'))
       )
 
-      const result = E.fold(
-        (_) => [],
-        (a: R.RouteDetails<any>) => a.found.values
-      )(route)
-      expect(result).toEqual(['horses', 'are'])
+      expect(Res.map(route, R.getFoundPath)).toEqual(
+        Res.success(['horses', 'are'])
+      )
     })
   })
 
