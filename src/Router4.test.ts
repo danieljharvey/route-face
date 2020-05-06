@@ -6,9 +6,11 @@ import fc from 'fast-check'
 
 const myRoute = R.makeRoute
   .then(t.literal('dog'))
-  .then(t.literal('log'))
+  .then(t.number)
   .then(t.literal('bog'))
   .done()
+
+type MyRoute = R.RouteTypes<typeof myRoute>
 
 const myRouteArb = getArbitrary(t.tuple(myRoute.pieces))
 
