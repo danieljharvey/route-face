@@ -31,6 +31,18 @@ export const combineResults = <E, A, B>(
     ? value2
     : success([value1.value, value2.value])
 
+export const map = <E, A, B>(
+  result: Result<E, A>,
+  f: (a: A) => B
+): Result<E, B> =>
+  isFailure(result) ? result : success(f(result.value))
+
+export const bind = <E, A, B>(
+  result: Result<E, A>,
+  f: (a: A) => Result<E, B>
+): Result<E, B> =>
+  isFailure(result) ? result : f(result.value)
+
 const id = <A>(a: A): A => a
 
 export const matchResult = <E, A, B>(
@@ -52,7 +64,7 @@ export const all = <E, A>(
       return total
     }
     return matchResult<E, A, Result<E, A[]>>(
-      (e) => failure(e),
+      e => failure(e),
       (a: A) => success([...total.value, a])
     )(val)
   }, success<E, A[]>([]))
