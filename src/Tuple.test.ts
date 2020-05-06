@@ -1,6 +1,6 @@
-import * as T from './Tuple2'
+import * as T from './Tuple'
 
-describe('Tuple2', () => {
+describe('Tuple', () => {
   describe('pushTuple', () => {
     it('With empty', () => {
       expect(T.pushTuple(3)).toEqual([3])

@@ -52,7 +52,7 @@ export const all = <E, A>(
       return total
     }
     return matchResult<E, A, Result<E, A[]>>(
-      e => failure(e),
+      (e) => failure(e),
       (a: A) => success([...total.value, a])
     )(val)
   }, success<E, A[]>([]))
