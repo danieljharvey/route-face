@@ -12,6 +12,8 @@ const myRoute = R.makeRoute
 
 type MyRoute = R.RouteTypes<typeof myRoute>
 
+export const testMyRoute: MyRoute = ['dog', 100, 'bog']
+
 const myRouteArb = getArbitrary(
   t.tuple(myRoute.pieces) as any
 )

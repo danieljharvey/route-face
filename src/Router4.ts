@@ -12,7 +12,7 @@ import {
   NonEmptyStringC,
 } from 'io-ts-types/lib/NonEmptyString'
 
-type FromCodec<T> = T extends t.Mixed ? T : never
+type FromCodec<T> = T extends t.Mixed ? t.TypeOf<T> : never
 
 type FromCodecToTypes<T extends t.Mixed[]> = {
   [P in keyof T]: FromCodec<T[P]>
