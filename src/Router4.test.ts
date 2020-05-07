@@ -10,6 +10,7 @@ const myRoute = R.makeRoute
   .path('bog')
   .done()
 
+// type MyRoute = ['dog', number, 'bog']
 type MyRoute = R.RouteTypes<typeof myRoute>
 
 export const testMyRoute: MyRoute = ['dog', 100, 'bog']
