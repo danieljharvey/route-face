@@ -4,6 +4,7 @@ import * as Res from './Result'
 import { getArbitrary } from 'fast-check-io-ts'
 import fc from 'fast-check'
 
+// an example route would be /dog/400/bog/
 const myRoute = R.makeRoute
   .path('dog')
   .number()
