@@ -12,6 +12,8 @@ import {
   NonEmptyStringC,
 } from 'io-ts-types/lib/NonEmptyString'
 
+import { Method } from './domain/Methods'
+
 // convert validators into output values
 type FromCodec<T> = T extends t.Mixed ? t.TypeOf<T> : never
 type FromCodecTuple<T extends t.Mixed[]> = {
@@ -88,10 +90,10 @@ export const validateHeaders = <
         const result = eitherToResult(
           piece.decode(headers[key])
         )
-        return Res.map(result, (a) => [key, a])
+        return Res.map(result, a => [key, a])
       })
     ),
-    (as) =>
+    as =>
       as.reduce<Headers>(
         (headers: Headers, [key, value]) => ({
           ...headers,
@@ -191,7 +193,17 @@ export const stringHeader = <
   AddHeader<Headers, HeaderName, typeof t.string>
 > => addHeader(oldRoute, headerName, t.string)
 
-const stringHeaderExample = stringHeader(empty, 'x-name')
+export const numberHeader = <
+  Pieces extends AnyPieces,
+  Headers extends AnyHeaders,
+  HeaderName extends string
+>(
+  oldRoute: Route<Pieces, Headers>,
+  headerName: HeaderName
+): Route<
+  Pieces,
+  AddHeader<Headers, HeaderName, typeof NumberFromString>
+> => addHeader(oldRoute, headerName, NumberFromString)
 
 ///
 
@@ -207,6 +219,16 @@ export const extendRoute = <
     extendRoute(path(route, pathStr)),
   number: () => extendRoute(number(route)),
   string: () => extendRoute(string(route)),
+  header: <HeaderName extends string, P extends Piece>(
+    headerName: HeaderName,
+    validator: P
+  ) => extendRoute(addHeader(route, headerName, validator)),
+  stringHeader: <HeaderName extends string>(
+    headerName: HeaderName
+  ) => extendRoute(stringHeader(route, headerName)),
+  numberHeader: <HeaderName extends string>(
+    headerName: HeaderName
+  ) => extendRoute(numberHeader(route, headerName)),
   done: () => route,
 })
 

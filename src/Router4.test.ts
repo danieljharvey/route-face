@@ -36,11 +36,10 @@ describe('Router4', () => {
     expect(result.value).toEqual(['dog', 100, 'bog'])
   })
 
-  const routeWithHeaders = R.addHeader(
-    R.stringHeader(myRoute, 'x-user-name'),
-    'x-user-id',
-    NumberFromString
-  )
+  const routeWithHeaders = R.extendRoute(myRoute)
+    .stringHeader('x-user-name')
+    .numberHeader('x-user-id')
+    .done()
 
   it('Adding headers does not affect path results', () => {
     const pathResult = R.validatePath(routeWithHeaders, [

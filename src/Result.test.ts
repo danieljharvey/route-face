@@ -13,4 +13,16 @@ describe('Result', () => {
       ).toEqual(Res.success(['Hello', 'Poo']))
     })
   })
+  describe('First', () => {
+    it('Returns last failure when no successes', () => {
+      expect(
+        Res.first(Res.failure('oh'), Res.failure('no'))
+      ).toEqual(Res.failure('no'))
+    })
+    it('Returns first success', () => {
+      expect(
+        Res.first(Res.failure('oh'), Res.success('yes'))
+      ).toEqual(Res.success('yes'))
+    })
+  })
 })

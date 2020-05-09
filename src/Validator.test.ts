@@ -39,12 +39,29 @@ describe('Validators', () => {
       expect(result).toEqual(Res.success('dog'))
     })
   })
+  describe('OneOf', () => {
+    it('Fails them all', () => {
+      const result = V.oneOf(
+        V.stringLiteralValidator('dog'),
+        V.stringLiteralValidator('log')
+      ).validate('pog')
+      expect(Res.isFailure(result)).toBeTruthy()
+    })
+    it('Succeeds on one', () => {
+      const result = V.oneOf(
+        V.stringLiteralValidator('dog'),
+        V.stringLiteralValidator('pog'),
+        V.stringLiteralValidator('log')
+      ).validate('pog')
+      expect(result).toEqual(Res.success('pog'))
+    })
+  })
   describe('Arbitraries', () => {
     it('Creates values', () => {
       const arb = V.getArbitrary(V.integerValidator)
       fc.assert(
-        fc.property(arb, (a) => {
-          console.log(a)
+        fc.property(arb, a => {
+          expect(Number.isInteger(a)).toBeTruthy()
         })
       )
     })

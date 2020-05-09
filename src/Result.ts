@@ -68,3 +68,14 @@ export const all = <E, A>(
       (a: A) => success([...total.value, a])
     )(val)
   }, success<E, A[]>([]))
+
+export const first = <E, A>(
+  result: Result<E, A>,
+  ...results: Result<E, A>[]
+): Result<E, A> =>
+  [result, ...results].reduce((total, current) => {
+    if (isSuccess(total)) {
+      return total
+    }
+    return current
+  }, result)

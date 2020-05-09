@@ -69,6 +69,31 @@ export const stringLiteralValidator = <
       : Res.failure(`${a} does not match ${lit}`)
   )
 
+export const caseInsensitiveStringLiteralValidator = <
+  Literal extends string
+>(
+  lit: Literal
+) =>
+  validator<'Literal', Literal>('Literal', (a) =>
+    a.toUpperCase() === lit.toUpperCase()
+      ? Res.success(lit)
+      : Res.failure(
+          `${a} does not case insensitively match ${lit}`
+        )
+  )
+
+// validator that matches one of the items inside
+export const oneOf = <Names extends string[], A>(
+  validator1: Validator<Names[number], A>,
+  ...validators: Validator<Names[number], A>[]
+): Validator<'OneOf', A> =>
+  validator<'OneOf', A>('OneOf', (a) =>
+    Res.first(
+      validator1.validate(a),
+      ...validators.map((v) => v.validate(a))
+    )
+  )
+
 export const getArbitrary = <Name extends string, A>(
   validator: Validator<Name, A>
 ): fc.Arbitrary<A> =>
