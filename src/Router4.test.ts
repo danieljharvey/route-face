@@ -6,7 +6,7 @@ import * as Res from './Result'
 import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
 
 // an example route would be /dog/400/bog/
-const myRoute = R.makeRoute
+const myRoute = R.makeRoute()
   .path('dog')
   .number()
   .path('bog')

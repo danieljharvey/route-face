@@ -5,7 +5,7 @@ import * as t from 'io-ts'
 describe('Endpoint', () => {
   describe('get', () => {
     // posts/100/view/
-    const getRoute = R.makeRoute
+    const getRoute = R.makeRoute()
       .path('posts')
       .number()
       .path('view')
@@ -86,7 +86,7 @@ describe('Endpoint', () => {
 
   describe('post', () => {
     // posts/100/view/
-    const postRoute = R.makeRoute
+    const postRoute = R.makeRoute()
       .path('posts')
       .number()
       .path('view')

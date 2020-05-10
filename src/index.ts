@@ -16,13 +16,13 @@ type User = t.TypeOf<typeof userValidator>
 
 let userStore: User[] = []
 
-const userRouteWithAuthToken = R.makeRoute
-  .path('users')
-  .stringHeader('authtoken')
-  .done()
-
 const getUser = E.endpoint(
-  R.extendRoute(userRouteWithAuthToken).number().done(),
+  R.makeRoute()
+    .path('users')
+    .number()
+    .get()
+    .stringHeader('authtoken')
+    .done(),
   ({ path: [_, userId], headers: { authtoken } }) => {
     if (authtoken !== 'secretpassword') {
       return Promise.resolve(apiFailure('auth failure'))
@@ -37,7 +37,11 @@ const getUser = E.endpoint(
 )
 
 const postUser = E.endpoint(
-  userRouteWithAuthToken,
+  R.makeRoute()
+    .path('users')
+    .stringHeader('authtoken')
+    .post(userValidator)
+    .done(),
   ({ headers: { authtoken }, postData: user }) => {
     if (authtoken !== 'secretpassword') {
       return Promise.resolve(apiFailure('auth failure'))

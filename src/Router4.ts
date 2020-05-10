@@ -1,77 +1,33 @@
 import * as t from 'io-ts'
-import { Push, pushTuple } from './Tuple'
 import * as Res from './Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
+import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
 import {
-  NumberFromString,
-  NumberFromStringC,
-} from 'io-ts-types/lib/NumberFromString'
+  Route,
+  Method,
+  Piece,
+  AnyHeaders,
+  AnyPieces,
+} from './router/Types'
+export {
+  AnyPieces,
+  AnyHeaders,
+  RouteTypes,
+  Route,
+  FromCodecTuple,
+  FromCodecObject,
+} from './router/Types'
+import { add, path, string, number } from './router/Path'
+export { validatePath } from './router/Path'
 import {
-  NonEmptyString,
-  NonEmptyStringC,
-} from 'io-ts-types/lib/NonEmptyString'
-import * as HTTP from './domain/Methods'
-
-// convert validators into output values
-type FromCodec<T> = T extends t.Mixed ? t.TypeOf<T> : never
-export type FromCodecTuple<T extends t.Mixed[]> = {
-  [P in keyof T]: FromCodec<T[P]>
-}
-export type FromCodecObject<
-  T extends { [key: string]: t.Mixed }
-> = {
-  [P in keyof T]: FromCodec<T[P]>
-}
-
-// get path params from route
-export type RouteTypes<
-  T extends Route<AnyPieces, AnyHeaders, AnyPostData>
-> = FromCodecTuple<T['pieces']>
-
-// get record of header types from route
-export type HeaderTypes<
-  T extends Route<AnyPieces, AnyHeaders, AnyPostData>
-> = FromCodecObject<T['headers']>
-
-// generic pieces we extend from
-type Piece = t.Mixed
-export type AnyPieces = Piece[]
-export type AnyHeaders = { [key: string]: Piece }
-export type AnyPostData = Piece
-
-export type Route<
-  Pieces extends AnyPieces,
-  Headers extends AnyHeaders,
-  PostData extends Piece
-> = {
-  type: 'Route'
-  pieces: Pieces
-  headers: Headers
-  method: Method<PostData>
-}
-
-//
-
-type Method<PostData extends Piece> =
-  | {
-      method: 'get'
-    }
-  | { method: 'post'; validator: PostData }
-
-const getMethod = (): Method<never> => ({ method: 'get' })
-
-const postMethod = <PostData extends Piece>(
-  validator: PostData
-): Method<PostData> => ({ method: 'post', validator })
-
-//
-
-type AddHeader<
-  Headers extends AnyHeaders,
-  HeaderName extends string,
-  Validator extends Piece
-> = Headers & Record<HeaderName, Validator>
+  addHeader,
+  stringHeader,
+  numberHeader,
+} from './router/Headers'
+export { validateHeaders } from './router/Headers'
+import { getMethod, postMethod } from './router/Method'
+export { validateMethod } from './router/Method'
 
 export const eitherToResult = <A>(
   either: E.Either<t.Errors, A>
@@ -79,52 +35,6 @@ export const eitherToResult = <A>(
   either._tag === 'Left'
     ? Res.failure(reporter(either).join('/n'))
     : Res.success(either.right)
-
-export const validateMethod = <PostData extends Piece>(
-  method: Method<PostData>,
-  methodString: string,
-  postData: object
-): Res.Result<string, FromCodec<PostData>> => {
-  return Res.failure(
-    "Couldn't be arsed to write the function yet"
-  )
-}
-
-// do these url pieces satisfy the parts
-export const validatePath = <Pieces extends AnyPieces>(
-  path: Pieces,
-  urlPieces: string[]
-): Res.Result<string, FromCodecTuple<Pieces>> =>
-  Res.all(
-    path
-      .map((piece, index) => piece.decode(urlPieces[index]))
-      .map(eitherToResult)
-  ) as Res.Result<string, FromCodecTuple<Pieces>>
-
-// do these url pieces satisfy the parts
-export const validateHeaders = <Headers extends AnyHeaders>(
-  headers: Headers,
-  requestHeaders: { [key: string]: string }
-): Res.Result<string, FromCodecObject<Headers>> =>
-  Res.map(
-    Res.all(
-      Object.entries(headers).map(([key, piece]) => {
-        // TODO - map failure to a more helpful error message
-        const result = eitherToResult(
-          piece.decode(requestHeaders[key])
-        )
-        return Res.map(result, a => [key, a])
-      })
-    ),
-    as =>
-      as.reduce<Headers>(
-        (theseHeaders: Headers, [key, value]) => ({
-          ...theseHeaders,
-          [key]: value,
-        }),
-        {} as Headers
-      )
-  ) as Res.Result<string, FromCodecObject<Headers>>
 
 export const route = <
   Pieces extends AnyPieces,
@@ -164,85 +74,33 @@ const modifyRoutePath = <
   pieces: f(route.pieces),
 })
 
-// add any io-ts validator
-export const add = <S extends Piece>(newPart: S) => <
-  Pieces extends AnyPieces
+// map over headers
+const modifyRouteHeaders = <
+  Pieces extends AnyPieces,
+  HeadersA extends AnyHeaders,
+  PostData extends Piece,
+  HeadersB extends AnyHeaders
 >(
-  pieces: Pieces
-): Push<S, Pieces> => pushTuple(newPart, ...pieces)
+  route: Route<Pieces, HeadersA, PostData>,
+  f: (a: HeadersA) => HeadersB
+): Route<Pieces, HeadersB, PostData> => ({
+  ...route,
+  headers: f(route.headers),
+})
 
-// path item from string literal, ie "posts"
-export const path = <
-  Str extends string,
-  Pieces extends AnyPieces
->(
-  path: Str
-): ((pieces: Pieces) => Push<t.LiteralC<Str>, Pieces>) =>
-  add(t.literal(path))
-
-// path item that accepts any number
-export const number = <Pieces extends AnyPieces>(): ((
-  pieces: Pieces
-) => Push<NumberFromStringC, Pieces>) =>
-  add(NumberFromString)
-
-export const string = <Pieces extends AnyPieces>(): ((
-  pieces: Pieces
-) => Push<NonEmptyStringC, Pieces>) => add(NonEmptyString)
-
-////
-
-export const addHeader = <
+// map over method
+const modifyRouteMethod = <
   Pieces extends AnyPieces,
   Headers extends AnyHeaders,
-  PostData extends Piece,
-  HeaderName extends string,
-  P extends Piece
+  PostDataA extends Piece,
+  PostDataB extends Piece
 >(
-  oldRoute: Route<Pieces, Headers, PostData>,
-  headerName: HeaderName,
-  validator: P
-): Route<
-  Pieces,
-  AddHeader<Headers, HeaderName, P>,
-  PostData
-> =>
-  route(
-    oldRoute.pieces,
-    {
-      ...oldRoute.headers,
-      [headerName]: validator,
-    },
-    oldRoute.method
-  )
-
-export const stringHeader = <
-  Pieces extends AnyPieces,
-  Headers extends AnyHeaders,
-  PostData extends Piece,
-  HeaderName extends string
->(
-  oldRoute: Route<Pieces, Headers, PostData>,
-  headerName: HeaderName
-): Route<
-  Pieces,
-  AddHeader<Headers, HeaderName, typeof t.string>,
-  PostData
-> => addHeader(oldRoute, headerName, t.string)
-
-export const numberHeader = <
-  Pieces extends AnyPieces,
-  Headers extends AnyHeaders,
-  PostData extends Piece,
-  HeaderName extends string
->(
-  oldRoute: Route<Pieces, Headers, PostData>,
-  headerName: HeaderName
-): Route<
-  Pieces,
-  AddHeader<Headers, HeaderName, typeof NumberFromString>,
-  PostData
-> => addHeader(oldRoute, headerName, NumberFromString)
+  route: Route<Pieces, Headers, PostDataA>,
+  f: (a: Method<PostDataA>) => Method<PostDataB>
+): Route<Pieces, Headers, PostDataB> => ({
+  ...route,
+  method: f(route.method),
+})
 
 ///
 
@@ -264,14 +122,33 @@ export const extendRoute = <
   header: <HeaderName extends string, P extends Piece>(
     headerName: HeaderName,
     validator: P
-  ) => extendRoute(addHeader(route, headerName, validator)),
+  ) =>
+    extendRoute(
+      modifyRouteHeaders(
+        route,
+        addHeader(headerName, validator)
+      )
+    ),
   stringHeader: <HeaderName extends string>(
     headerName: HeaderName
-  ) => extendRoute(stringHeader(route, headerName)),
+  ) =>
+    extendRoute(
+      modifyRouteHeaders(route, stringHeader(headerName))
+    ),
   numberHeader: <HeaderName extends string>(
     headerName: HeaderName
-  ) => extendRoute(numberHeader(route, headerName)),
+  ) =>
+    extendRoute(
+      modifyRouteHeaders(route, numberHeader(headerName))
+    ),
+  get: () =>
+    extendRoute(modifyRouteMethod(route, _ => getMethod())),
+  post: <PostDataB extends Piece>(validator: PostDataB) =>
+    extendRoute(
+      modifyRouteMethod(route, _ => postMethod(validator))
+    ),
+
   done: () => route,
 })
 
-export const makeRoute = extendRoute(empty)
+export const makeRoute = () => extendRoute(empty)
