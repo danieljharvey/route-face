@@ -7,6 +7,10 @@ import { errors, APIError } from './Errors'
 const splitUrl = (whole: string): string[] =>
   whole.split('/').filter(a => a.length > 0)
 
+type AnyEndpoint =
+  | GetEndpoint<any, any, any>
+  | PostEndpoint<any, any, any, any>
+
 ///////////////////////////////////////////////////
 
 export type GetRequest = {
@@ -19,10 +23,15 @@ type GetHandler<
   Pieces extends R.AnyPieces,
   Headers extends R.AnyHeaders,
   A
-> = (data: {
+> = (data: GetData<Pieces, Headers>) => Promise<A>
+
+type GetData<
+  Pieces extends R.AnyPieces,
+  Headers extends R.AnyHeaders
+> = {
   path: R.FromCodecTuple<Pieces>
   headers: R.FromCodecObject<Headers>
-}) => Promise<A>
+}
 
 type GetEndpoint<
   Pieces extends R.AnyPieces,
@@ -30,6 +39,7 @@ type GetEndpoint<
   A
 > = {
   method: HTTP.MethodGet
+  methodValidator: typeof HTTP.methodGet
   route: R.Route<Pieces, Headers>
   handler: GetHandler<Pieces, Headers, A>
 }
@@ -43,9 +53,34 @@ export const getEndpoint = <
   handler: GetHandler<Pieces, Headers, A>
 ): GetEndpoint<Pieces, Headers, A> => ({
   method: 'get',
+  methodValidator: HTTP.methodGet,
   route,
   handler,
 })
+
+export const validateEndpoint = (
+  endpoint: AnyEndpoint,
+  request: GetRequest
+): Res.Result<APIError, 'ok'> => {
+  const method = endpoint.methodValidator.validate(
+    request.method
+  )
+  if (Res.isFailure(method)) {
+    return Res.failure(
+      errors.methodMismatch(request.url, method.value)
+    )
+  }
+  const path = R.validatePath(
+    endpoint.route,
+    splitUrl(request.url)
+  )
+  if (Res.isFailure(path)) {
+    return Res.failure(
+      errors.pathMismatch(request.url, path.value)
+    )
+  }
+  return Res.success('ok')
+}
 
 // excuse the inelegance, cba to make a nicer chaining thing right now
 export const runGetEndpoint = <
@@ -109,6 +144,7 @@ type PostEndpoint<
   A
 > = {
   method: HTTP.MethodPost
+  methodValidator: typeof HTTP.methodPost
   route: R.Route<Pieces, Headers>
   validator: PostData
   handler: PostHandler<Pieces, Headers, PostData, A>
@@ -125,6 +161,7 @@ export const postEndpoint = <
   handler: PostHandler<Pieces, Headers, PostData, A>
 ): PostEndpoint<Pieces, Headers, PostData, A> => ({
   method: 'post',
+  methodValidator: HTTP.methodPost,
   route,
   validator,
   handler,

@@ -19,3 +19,22 @@ export type MatchResult = Res.Result<
 >
 
 // we're going to use "HowCloseWereWe" to work out which errors to show
+
+// todo: this is weak as fuck
+export type APIResponse = {
+  status: number
+  body: object | string
+}
+
+export const apiSuccess = (
+  body: object | string,
+  status = 200
+): APIResponse => ({
+  status,
+  body,
+})
+
+export const apiFailure = (
+  body: object | string,
+  status = 401
+): APIResponse => ({ status, body })

@@ -4,6 +4,11 @@ import bodyParser from 'koa-bodyparser'
 import * as E from './Endpoint'
 import * as R from './Router4'
 import * as t from 'io-ts'
+import {
+  apiSuccess,
+  apiFailure,
+  APIResponse,
+} from './Response'
 
 const userValidator = t.type({
   id: t.number,
@@ -24,12 +29,14 @@ const getUser = E.getEndpoint(
   R.extendRoute(userRouteWithAuthToken).number().done(),
   ({ path: [_, userId], headers: { authtoken } }) => {
     if (authtoken !== 'secretpassword') {
-      return Promise.reject('auth failure')
+      return Promise.resolve(apiFailure('auth failure'))
     }
     const user = userStore[userId]
-    return user
-      ? Promise.resolve(user)
-      : Promise.reject(`User ${userId} not found!`)
+    return Promise.resolve(
+      user
+        ? apiSuccess(user)
+        : apiFailure(`User ${userId} not found!`)
+    )
   }
 )
 
@@ -38,10 +45,10 @@ const postUser = E.postEndpoint(
   userValidator,
   ({ headers: { authtoken }, postData: user }) => {
     if (authtoken !== 'secretpassword') {
-      return Promise.reject('auth failure')
+      return Promise.resolve(apiFailure('auth failure'))
     }
     userStore[user.id] = user
-    return Promise.resolve('ok!')
+    return Promise.resolve(apiSuccess('ok!'))
   }
 )
 
@@ -59,21 +66,31 @@ const koaContextToRequest = (
 
 app.use(async (ctx: Koa.Context) => {
   const req = koaContextToRequest(ctx)
-  Promise.race([
-    E.runPostEndpoint(postUser, req),
-    E.runGetEndpoint(getUser, req),
-  ])
-    .then(response => {
-      console.log('success', response)
-      ctx.body = response
-      ctx.status = 200
-    })
-    .catch(e => {
-      console.log(e)
-      ctx.body = e.toString()
-      ctx.status = 400
-      return
-    })
+  const success = (response: any) => {
+    console.log('success', response)
+    ctx.body = response.body || response
+    ctx.status = response.status || 200
+  }
+
+  E.runPostEndpoint(postUser, req)
+    .then(success)
+    .catch(_ =>
+      E.runGetEndpoint(getUser, req)
+        .then(success)
+        .catch((e: any) => {
+          const outcomes = [
+            postUser,
+            getUser,
+          ].map(endpoint =>
+            E.validateEndpoint(endpoint, req)
+          )
+          console.log('miss!', outcomes)
+          console.log(e)
+          ctx.body = e.toString()
+          ctx.status = 400
+          return
+        })
+    )
 })
 
 app.listen(3000)

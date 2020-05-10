@@ -1,15 +1,35 @@
 // no route found
-type NoRouteMatch = {
-  type: 'NoRouteMatch'
+type PathMismatch = {
+  type: 'PathMismatch'
   url: string
+  message: string
 }
 
-const noRouteMatch = (url: string): NoRouteMatch => ({
-  type: 'NoRouteMatch',
+const pathMismatch = (
+  url: string,
+  message: string
+): PathMismatch => ({
+  type: 'PathMismatch',
   url,
+  message,
 })
 
 ///////
+
+type MethodMismatch = {
+  type: 'MethodMismatch'
+  url: string
+  message: string
+}
+
+const methodMismatch = (
+  url: string,
+  message: string
+): MethodMismatch => ({
+  type: 'MethodMismatch',
+  url,
+  message,
+})
 
 // route found, headers wrong
 type HeaderMismatch = {
@@ -64,13 +84,15 @@ const handlerError = (
 })
 
 export type APIError =
-  | NoRouteMatch
+  | PathMismatch
+  | MethodMismatch
   | HeaderMismatch
   | BodyMismatch
   | HandlerError
 
 export const errors = {
-  noRouteMatch,
+  pathMismatch,
+  methodMismatch,
   headerMismatch,
   bodyMismatch,
   handlerError,
