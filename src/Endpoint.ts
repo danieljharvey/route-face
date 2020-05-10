@@ -7,126 +7,16 @@ import { errors, APIError } from './Errors'
 const splitUrl = (whole: string): string[] =>
   whole.split('/').filter(a => a.length > 0)
 
-type AnyEndpoint =
-  | GetEndpoint<any, any, any>
-  | PostEndpoint<any, any, any, any>
-
 ///////////////////////////////////////////////////
 
-export type GetRequest = {
-  url: string
-  headers: { [key: string]: string }
-  method: string
-}
-
-type GetHandler<
-  Pieces extends R.AnyPieces,
-  Headers extends R.AnyHeaders,
-  A
-> = (data: GetData<Pieces, Headers>) => Promise<A>
-
-type GetData<
-  Pieces extends R.AnyPieces,
-  Headers extends R.AnyHeaders
-> = {
-  path: R.FromCodecTuple<Pieces>
-  headers: R.FromCodecObject<Headers>
-}
-
-type GetEndpoint<
-  Pieces extends R.AnyPieces,
-  Headers extends R.AnyHeaders,
-  A
-> = {
-  method: HTTP.MethodGet
-  methodValidator: typeof HTTP.methodGet
-  route: R.Route<Pieces, Headers>
-  handler: GetHandler<Pieces, Headers, A>
-}
-
-export const getEndpoint = <
-  Pieces extends R.AnyPieces,
-  Headers extends R.AnyHeaders,
-  A
->(
-  route: R.Route<Pieces, Headers>,
-  handler: GetHandler<Pieces, Headers, A>
-): GetEndpoint<Pieces, Headers, A> => ({
-  method: 'get',
-  methodValidator: HTTP.methodGet,
-  route,
-  handler,
-})
-
-export const validateEndpoint = (
-  endpoint: AnyEndpoint,
-  request: GetRequest
-): Res.Result<APIError, 'ok'> => {
-  const method = endpoint.methodValidator.validate(
-    request.method
-  )
-  if (Res.isFailure(method)) {
-    return Res.failure(
-      errors.methodMismatch(request.url, method.value)
-    )
-  }
-  const path = R.validatePath(
-    endpoint.route,
-    splitUrl(request.url)
-  )
-  if (Res.isFailure(path)) {
-    return Res.failure(
-      errors.pathMismatch(request.url, path.value)
-    )
-  }
-  return Res.success('ok')
-}
-
-// excuse the inelegance, cba to make a nicer chaining thing right now
-export const runGetEndpoint = <
-  Pieces extends R.AnyPieces,
-  Headers extends R.AnyHeaders,
-  A
->(
-  endpoint: GetEndpoint<Pieces, Headers, A>,
-  request: GetRequest
-): Promise<A | APIError> => {
-  const method = HTTP.methodGet.validate(request.method)
-  if (Res.isFailure(method)) {
-    return Promise.reject(method.value)
-  }
-  const path = R.validatePath(
-    endpoint.route,
-    splitUrl(request.url)
-  )
-  if (Res.isFailure(path)) {
-    return Promise.reject(path.value)
-  }
-  const headers = R.validateHeaders(
-    endpoint.route,
-    request.headers
-  )
-  if (Res.isFailure(headers)) {
-    return Promise.resolve(
-      errors.headerMismatch(request.url, headers.value)
-    )
-  }
-  return endpoint.handler({
-    path: path.value,
-    headers: headers.value,
-  })
-}
-
-///////////////////////////////////////////////////////
-
-export type PostRequest = {
+export type Request = {
   url: string
   headers: { [key: string]: string }
   method: string
   postData: object
 }
 
-type PostHandler<
+type Handler<
   Pieces extends R.AnyPieces,
   Headers extends R.AnyHeaders,
   PostData extends t.Mixed,
@@ -137,47 +27,44 @@ type PostHandler<
   postData: t.TypeOf<PostData>
 }) => Promise<A>
 
-type PostEndpoint<
+type Endpoint<
   Pieces extends R.AnyPieces,
   Headers extends R.AnyHeaders,
   PostData extends t.Mixed,
   A
 > = {
-  method: HTTP.MethodPost
-  methodValidator: typeof HTTP.methodPost
-  route: R.Route<Pieces, Headers>
-  validator: PostData
-  handler: PostHandler<Pieces, Headers, PostData, A>
+  route: R.Route<Pieces, Headers, PostData>
+  handler: Handler<Pieces, Headers, PostData, A>
 }
 
-export const postEndpoint = <
+export const endpoint = <
   Pieces extends R.AnyPieces,
   Headers extends R.AnyHeaders,
   PostData extends t.Mixed,
   A
 >(
-  route: R.Route<Pieces, Headers>,
-  validator: PostData,
-  handler: PostHandler<Pieces, Headers, PostData, A>
-): PostEndpoint<Pieces, Headers, PostData, A> => ({
-  method: 'post',
-  methodValidator: HTTP.methodPost,
+  route: R.Route<Pieces, Headers, PostData>,
+  handler: Handler<Pieces, Headers, PostData, A>
+): Endpoint<Pieces, Headers, PostData, A> => ({
   route,
-  validator,
   handler,
 })
 
 // excuse the inelegance, cba to make a nicer chaining thing right now
-export const runPostEndpoint = <
+export const runEndpoint = <
   Pieces extends R.AnyPieces,
   Headers extends R.AnyHeaders,
   PostData extends t.Mixed,
   A
 >(
-  endpoint: PostEndpoint<Pieces, Headers, PostData, A>,
-  request: PostRequest
+  endpoint: Endpoint<Pieces, Headers, PostData, A>,
+  request: Request
 ): Promise<A | APIError> => {
-  const method = HTTP.methodPost.validate(request.method)
+  const method = R.validateMethod(
+    endpoint.route.method,
+    request.method,
+    request.postData
+  )
   if (Res.isFailure(method)) {
     return Promise.reject(method.value)
   }
@@ -197,19 +84,11 @@ export const runPostEndpoint = <
       errors.headerMismatch(request.url, headers.value)
     )
   }
-  const postData = R.eitherToResult(
-    endpoint.validator.decode(request.postData)
-  )
-  if (Res.isFailure(postData)) {
-    return Promise.resolve(
-      errors.bodyMismatch(request.url, postData.value)
-    )
-  }
   return endpoint
     .handler({
       path: path.value,
       headers: headers.value,
-      postData: postData.value,
+      postData: method.value,
     })
     .catch(e => {
       return Promise.resolve(

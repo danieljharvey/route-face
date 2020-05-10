@@ -4,11 +4,7 @@ import bodyParser from 'koa-bodyparser'
 import * as E from './Endpoint'
 import * as R from './Router4'
 import * as t from 'io-ts'
-import {
-  apiSuccess,
-  apiFailure,
-  APIResponse,
-} from './Response'
+import { apiSuccess, apiFailure } from './Response'
 
 const userValidator = t.type({
   id: t.number,
@@ -25,7 +21,7 @@ const userRouteWithAuthToken = R.makeRoute
   .stringHeader('authtoken')
   .done()
 
-const getUser = E.getEndpoint(
+const getUser = E.endpoint(
   R.extendRoute(userRouteWithAuthToken).number().done(),
   ({ path: [_, userId], headers: { authtoken } }) => {
     if (authtoken !== 'secretpassword') {
@@ -40,9 +36,8 @@ const getUser = E.getEndpoint(
   }
 )
 
-const postUser = E.postEndpoint(
+const postUser = E.endpoint(
   userRouteWithAuthToken,
-  userValidator,
   ({ headers: { authtoken }, postData: user }) => {
     if (authtoken !== 'secretpassword') {
       return Promise.resolve(apiFailure('auth failure'))
@@ -57,7 +52,7 @@ app.use(bodyParser())
 
 const koaContextToRequest = (
   ctx: Koa.Context
-): E.PostRequest => ({
+): E.Request => ({
   url: ctx.request.url,
   headers: ctx.request.headers,
   method: ctx.request.method,
@@ -72,19 +67,12 @@ app.use(async (ctx: Koa.Context) => {
     ctx.status = response.status || 200
   }
 
-  E.runPostEndpoint(postUser, req)
+  E.runEndpoint(postUser, req)
     .then(success)
     .catch(_ =>
-      E.runGetEndpoint(getUser, req)
+      E.runEndpoint(getUser, req)
         .then(success)
         .catch((e: any) => {
-          const outcomes = [
-            postUser,
-            getUser,
-          ].map(endpoint =>
-            E.validateEndpoint(endpoint, req)
-          )
-          console.log('miss!', outcomes)
           console.log(e)
           ctx.body = e.toString()
           ctx.status = 400
