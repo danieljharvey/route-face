@@ -16,10 +16,10 @@ import { Method } from './domain/Methods'
 
 // convert validators into output values
 type FromCodec<T> = T extends t.Mixed ? t.TypeOf<T> : never
-type FromCodecTuple<T extends t.Mixed[]> = {
+export type FromCodecTuple<T extends t.Mixed[]> = {
   [P in keyof T]: FromCodec<T[P]>
 }
-type FromCodecObject<
+export type FromCodecObject<
   T extends { [key: string]: t.Mixed }
 > = {
   [P in keyof T]: FromCodec<T[P]>
@@ -37,8 +37,8 @@ export type HeaderTypes<
 
 // generic pieces we extend from
 type Piece = t.Mixed
-type AnyPieces = Piece[]
-type AnyHeaders = { [key: string]: Piece }
+export type AnyPieces = Piece[]
+export type AnyHeaders = { [key: string]: Piece }
 
 export type Route<
   Pieces extends AnyPieces,
@@ -55,7 +55,7 @@ type AddHeader<
   Validator extends Piece
 > = Headers & Record<HeaderName, Validator>
 
-const eitherToResult = <A>(
+export const eitherToResult = <A>(
   either: E.Either<t.Errors, A>
 ): Res.Result<string, A> =>
   either._tag === 'Left'
@@ -87,6 +87,7 @@ export const validateHeaders = <
   Res.map(
     Res.all(
       Object.entries(route.headers).map(([key, piece]) => {
+        // TODO - map failure to a more helpful error message
         const result = eitherToResult(
           piece.decode(headers[key])
         )

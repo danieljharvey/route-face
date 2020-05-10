@@ -46,7 +46,7 @@ export const getFoundPath = <Values extends any[]>(
 ): Values => routeDetails.found.values
 
 const splitUrl = (whole: string): string[] =>
-  whole.split('/').filter((a) => a.length > 0)
+  whole.split('/').filter(a => a.length > 0)
 
 export const detailsFromRequest = (
   request: Request
@@ -75,7 +75,7 @@ export const fromValidator = <
   Values extends any[]
 >(
   validator: C
-): AddToRoute<Values, t.TypeOf<C>> => (input) => {
+): AddToRoute<Values, t.TypeOf<C>> => input => {
   const matchPath = urlPart(
     input.search.path,
     input.found.values.length
@@ -102,7 +102,7 @@ type Method = string // todo, sum type
 
 export const method = <Values extends any[]>(
   method: Method
-): SameRoute<Values> => (input) =>
+): SameRoute<Values> => input =>
   input.search.method === method
     ? Res.success(input)
     : Res.failure(`Did not match ${method}`)
