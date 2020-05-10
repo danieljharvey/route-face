@@ -6,7 +6,7 @@ import * as Res from './Result'
 import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
 
 // an example route would be /dog/400/bog/
-const myRoute = R.makeRoute
+const myRoute = R.makeRoute()
   .path('dog')
   .number()
   .path('bog')
@@ -19,7 +19,7 @@ export const testMyRoute: MyRoute = ['dog', 100, 'bog']
 
 describe('Router4', () => {
   it('Validates a path is wrong', () => {
-    const result = R.validatePath(myRoute, [
+    const result = R.validatePath(myRoute.pieces, [
       'things',
       'oh',
       'well',
@@ -27,7 +27,7 @@ describe('Router4', () => {
     expect(Res.isSuccess(result)).toBeFalsy()
   })
   it('Validates a path is right', () => {
-    const result = R.validatePath(myRoute, [
+    const result = R.validatePath(myRoute.pieces, [
       'dog',
       '100',
       'bog',
@@ -42,17 +42,16 @@ describe('Router4', () => {
     .done()
 
   it('Adding headers does not affect path results', () => {
-    const pathResult = R.validatePath(routeWithHeaders, [
-      'dog',
-      '100',
-      'bog',
-    ])
+    const pathResult = R.validatePath(
+      routeWithHeaders.pieces,
+      ['dog', '100', 'bog']
+    )
     expect(Res.isSuccess(pathResult)).toBeTruthy()
   })
 
   it('Fails because a header is missing', () => {
     const headerResult = R.validateHeaders(
-      routeWithHeaders,
+      routeWithHeaders.headers,
       {}
     )
     expect(Res.isSuccess(headerResult)).toBeFalsy()
@@ -60,7 +59,7 @@ describe('Router4', () => {
 
   it('Succeds when headers are provided', () => {
     const headerResult = R.validateHeaders(
-      routeWithHeaders,
+      routeWithHeaders.headers,
       {
         'x-user-name': 'DOGMAN',
         'x-user-id': '123123',
