@@ -69,14 +69,14 @@ export const runEndpoint = <
     return Promise.reject(method.value)
   }
   const path = R.validatePath(
-    endpoint.route,
+    endpoint.route.pieces,
     splitUrl(request.url)
   )
   if (Res.isFailure(path)) {
     return Promise.reject(path.value)
   }
   const headers = R.validateHeaders(
-    endpoint.route,
+    endpoint.route.headers,
     request.headers
   )
   if (Res.isFailure(headers)) {

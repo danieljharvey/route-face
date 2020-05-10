@@ -91,48 +91,40 @@ export const validateMethod = <PostData extends Piece>(
 }
 
 // do these url pieces satisfy the parts
-export const validatePath = <
-  Pieces extends AnyPieces,
-  Headers extends AnyHeaders,
-  PostData extends Piece
->(
-  route: Route<Pieces, Headers, PostData>,
+export const validatePath = <Pieces extends AnyPieces>(
+  path: Pieces,
   urlPieces: string[]
-): Res.Result<string, RouteTypes<typeof route>> =>
+): Res.Result<string, FromCodecTuple<Pieces>> =>
   Res.all(
-    route.pieces
+    path
       .map((piece, index) => piece.decode(urlPieces[index]))
       .map(eitherToResult)
-  ) as Res.Result<string, RouteTypes<typeof route>>
+  ) as Res.Result<string, FromCodecTuple<Pieces>>
 
 // do these url pieces satisfy the parts
-export const validateHeaders = <
-  Pieces extends AnyPieces,
-  Headers extends AnyHeaders,
-  PostData extends Piece
->(
-  route: Route<Pieces, Headers, PostData>,
-  headers: { [key: string]: string }
-): Res.Result<string, HeaderTypes<typeof route>> =>
+export const validateHeaders = <Headers extends AnyHeaders>(
+  headers: Headers,
+  requestHeaders: { [key: string]: string }
+): Res.Result<string, FromCodecObject<Headers>> =>
   Res.map(
     Res.all(
-      Object.entries(route.headers).map(([key, piece]) => {
+      Object.entries(headers).map(([key, piece]) => {
         // TODO - map failure to a more helpful error message
         const result = eitherToResult(
-          piece.decode(headers[key])
+          piece.decode(requestHeaders[key])
         )
         return Res.map(result, a => [key, a])
       })
     ),
     as =>
       as.reduce<Headers>(
-        (headers: Headers, [key, value]) => ({
-          ...headers,
+        (theseHeaders: Headers, [key, value]) => ({
+          ...theseHeaders,
           [key]: value,
         }),
         {} as Headers
       )
-  ) as Res.Result<string, HeaderTypes<typeof route>>
+  ) as Res.Result<string, FromCodecObject<Headers>>
 
 export const route = <
   Pieces extends AnyPieces,
@@ -158,53 +150,45 @@ export const pure = <S extends Piece>(
 ): Route<[S], {}, never> =>
   route([newPart], {}, getMethod())
 
-// add any io-ts validator
-export const add = <
-  Pieces extends AnyPieces,
+// map over route
+const modifyRoutePath = <
+  PiecesA extends AnyPieces,
   Headers extends AnyHeaders,
   PostData extends Piece,
-  S extends Piece
+  PiecesB extends AnyPieces
 >(
-  oldRoute: Route<Pieces, Headers, PostData>,
-  newPart: S
-): Route<Push<S, Pieces>, Headers, PostData> => ({
-  ...oldRoute,
-  pieces: pushTuple(newPart, ...oldRoute.pieces),
+  route: Route<PiecesA, Headers, PostData>,
+  f: (a: PiecesA) => PiecesB
+): Route<PiecesB, Headers, PostData> => ({
+  ...route,
+  pieces: f(route.pieces),
 })
+
+// add any io-ts validator
+export const add = <S extends Piece>(newPart: S) => <
+  Pieces extends AnyPieces
+>(
+  pieces: Pieces
+): Push<S, Pieces> => pushTuple(newPart, ...pieces)
 
 // path item from string literal, ie "posts"
 export const path = <
-  Pieces extends AnyPieces,
-  Headers extends AnyHeaders,
-  PostData extends Piece,
-  Str extends string
+  Str extends string,
+  Pieces extends AnyPieces
 >(
-  oldRoute: Route<Pieces, Headers, PostData>,
   path: Str
-): Route<
-  Push<t.LiteralC<Str>, Pieces>,
-  Headers,
-  PostData
-> => add(oldRoute, t.literal(path))
+): ((pieces: Pieces) => Push<t.LiteralC<Str>, Pieces>) =>
+  add(t.literal(path))
 
 // path item that accepts any number
-export const number = <
-  Pieces extends AnyPieces,
-  Headers extends AnyHeaders,
-  PostData extends Piece
->(
-  oldRoute: Route<Pieces, Headers, Piece>
-): Route<Push<NumberFromStringC, Pieces>, Headers, Piece> =>
-  add(oldRoute, NumberFromString)
+export const number = <Pieces extends AnyPieces>(): ((
+  pieces: Pieces
+) => Push<NumberFromStringC, Pieces>) =>
+  add(NumberFromString)
 
-export const string = <
-  Pieces extends AnyPieces,
-  Headers extends AnyHeaders,
-  PostData extends Piece
->(
-  oldRoute: Route<Pieces, Headers, Piece>
-): Route<Push<NonEmptyStringC, Pieces>, Headers, Piece> =>
-  add(oldRoute, NonEmptyString)
+export const string = <Pieces extends AnyPieces>(): ((
+  pieces: Pieces
+) => Push<NonEmptyStringC, Pieces>) => add(NonEmptyString)
 
 ////
 
@@ -270,11 +254,13 @@ export const extendRoute = <
   route: Route<Start, Headers, PostData>
 ) => ({
   custom: <S extends Piece>(next: S) =>
-    extendRoute(add(route, next)),
+    extendRoute(modifyRoutePath(route, add(next))),
   path: <Str extends string>(pathStr: Str) =>
-    extendRoute(path(route, pathStr)),
-  number: () => extendRoute(number(route)),
-  string: () => extendRoute(string(route)),
+    extendRoute(modifyRoutePath(route, path(pathStr))),
+  number: () =>
+    extendRoute(modifyRoutePath(route, number())),
+  string: () =>
+    extendRoute(modifyRoutePath(route, string())),
   header: <HeaderName extends string, P extends Piece>(
     headerName: HeaderName,
     validator: P
