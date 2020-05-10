@@ -1,5 +1,5 @@
 import * as E from './Endpoint'
-import * as R from './Router4'
+import * as R from './Router'
 import * as t from 'io-ts'
 
 describe('Endpoint', () => {

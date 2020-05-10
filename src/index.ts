@@ -2,7 +2,7 @@ import * as Koa from 'koa'
 import bodyParser from 'koa-bodyparser'
 
 import * as E from './Endpoint'
-import * as R from './Router4'
+import * as R from './Router'
 import * as t from 'io-ts'
 import { apiSuccess, apiFailure } from './Response'
 
