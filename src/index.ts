@@ -6,16 +6,20 @@ import * as R from './Router'
 import * as t from 'io-ts'
 import { apiSuccess, apiFailure } from './Response'
 
+// validator for data in our POST request
 const userValidator = t.type({
   id: t.number,
   name: t.string,
   age: t.number,
 })
 
+// type, derived from the validator
 type User = t.TypeOf<typeof userValidator>
 
+// very 1x data store
 let userStore: User[] = []
 
+// get user from store if available
 const getUser = E.endpoint(
   R.makeRoute()
     .path('users')
@@ -36,6 +40,7 @@ const getUser = E.endpoint(
   }
 )
 
+// save a user in the store
 const postUser = E.endpoint(
   R.makeRoute()
     .path('users')
@@ -54,6 +59,7 @@ const postUser = E.endpoint(
 const app = new Koa.default()
 app.use(bodyParser())
 
+// grab the stuff from the Koa context that we need
 const koaContextToRequest = (
   ctx: Koa.Context
 ): E.Request => ({
@@ -65,12 +71,14 @@ const koaContextToRequest = (
 
 app.use(async (ctx: Koa.Context) => {
   const req = koaContextToRequest(ctx)
+  
   const success = (response: any) => {
     console.log('success', response)
     ctx.body = response.body || response
     ctx.status = response.status || 200
   }
-
+  
+  // the next step will be to provide a less manual way of combining endpoints
   E.runEndpoint(postUser, req)
     .then(success)
     .catch(_ =>
