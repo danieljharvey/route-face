@@ -2,7 +2,7 @@ import * as E from './Endpoint'
 import * as R from './Router'
 import * as t from 'io-ts'
 
-describe('Endpoint', () => {
+describe.skip('Endpoint', () => {
   describe('get', () => {
     // posts/100/view/
     const getRoute = R.makeRoute()

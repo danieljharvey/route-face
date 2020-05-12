@@ -16,26 +16,46 @@ import {
   AnyPieces,
   FromCodecTuple,
   Piece,
+  PathError,
+  ValidationError,
 } from './Types'
 
 export const eitherToResult = <A>(
   either: E.Either<t.Errors, A>
-): Res.Result<string, A> =>
-  either._tag === 'Left'
-    ? Res.failure(reporter(either).join('/n'))
-    : Res.success(either.right)
+): Res.Result<ValidationError, A> =>
+  E.fold<t.Errors, A, Res.Result<ValidationError, A>>(
+    left =>
+      Res.failure({
+        value: left[0].value,
+        expected: left[0].context[0].type.name,
+      } as ValidationError),
+    (right: A) => Res.success(right)
+  )(either)
 
 // do these url pieces satisfy the parts
 export const validatePath = <Pieces extends AnyPieces>(
   path: Pieces,
   urlPieces: string[]
-): Res.Result<string, FromCodecTuple<Pieces>> =>
-  Res.all(
-    path
-      .map((piece, index) => piece.decode(urlPieces[index]))
-      .map(eitherToResult)
-  ) as Res.Result<string, FromCodecTuple<Pieces>>
+): Res.Result<PathError, FromCodecTuple<Pieces>> => {
+  const results = path
+    .map((piece, index) => piece.decode(urlPieces[index]))
+    .map(eitherToResult)
 
+  const all = Res.all(results)
+
+  if (Res.isSuccess(all)) {
+    return all as Res.Result<
+      PathError,
+      FromCodecTuple<Pieces>
+    >
+  }
+  return Res.failure({
+    type: 'PathError',
+    matches: results.map(result =>
+      Res.map(result, a => String(a))
+    ),
+  })
+}
 // add any io-ts validator
 export const add = <S extends Piece>(newPart: S) => <
   Pieces extends AnyPieces

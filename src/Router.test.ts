@@ -73,6 +73,58 @@ describe('Router4', () => {
   })
 })
 
+describe('validateRequestWithRoute', () => {
+  it('Returns path error', () => {
+    const result = R.validateRequestWithRoute(myRoute, {
+      url: '/dog/one',
+      headers: {},
+      method: 'get',
+      postData: {},
+    })
+
+    expect(Res.isFailure(result)).toBeTruthy()
+
+    if (Res.isFailure(result)) {
+      const pathMatches =
+        (result.value.path !== null &&
+          result.value.path.matches) ||
+        []
+      expect(Res.isSuccess(pathMatches[0])).toBeTruthy()
+      expect(pathMatches[1]).toEqual(
+        Res.failure({
+          expected: 'NumberFromString',
+          value: 'one',
+        })
+      )
+      expect(pathMatches[2]).toEqual(
+        Res.failure({
+          expected: '"bog"',
+          value: undefined,
+        })
+      )
+    }
+  })
+
+  it('Returns method error when wrong type', () => {
+    const result = R.validateRequestWithRoute(myRoute, {
+      url: '/dog/one',
+      headers: {},
+      method: 'post',
+      postData: {},
+    })
+
+    expect(Res.isFailure(result)).toBeTruthy()
+
+    if (Res.isFailure(result)) {
+      const error = result.value.method
+      expect(error).toEqual({
+        expected: 'get',
+        value: 'post',
+      })
+    }
+  })
+})
+
 // the arbitraries we are using is broken
 // re-enable this test once we are using our own validators
 /*

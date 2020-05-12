@@ -9,23 +9,14 @@ const splitUrl = (whole: string): string[] =>
 
 ///////////////////////////////////////////////////
 
-export type Request = {
-  url: string
-  headers: { [key: string]: string }
-  method: string
-  postData: object
-}
-
 type Handler<
   Pieces extends R.AnyPieces,
   Headers extends R.AnyHeaders,
   PostData extends t.Mixed,
   A
-> = (data: {
-  path: R.FromCodecTuple<Pieces>
-  headers: R.FromCodecObject<Headers>
-  postData: t.TypeOf<PostData>
-}) => Promise<A>
+> = (
+  data: R.RouteOutput<Pieces, Headers, PostData>
+) => Promise<A>
 
 type Endpoint<
   Pieces extends R.AnyPieces,
@@ -58,12 +49,11 @@ export const runEndpoint = <
   A
 >(
   endpoint: Endpoint<Pieces, Headers, PostData, A>,
-  request: Request
+  request: R.Request
 ): Promise<A | APIError> => {
   const method = R.validateMethod(
     endpoint.route.method,
-    request.method,
-    request.postData
+    request.method
   )
   if (Res.isFailure(method)) {
     return Promise.reject(method.value)

@@ -56,7 +56,7 @@ app.use(bodyParser())
 
 const koaContextToRequest = (
   ctx: Koa.Context
-): E.Request => ({
+): R.Request => ({
   url: ctx.request.url,
   headers: ctx.request.headers,
   method: ctx.request.method,

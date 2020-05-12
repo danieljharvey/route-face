@@ -1,21 +1,26 @@
 import * as Res from './Result'
 import * as fc from 'fast-check'
+import { ValidationError } from './Router'
 // string validators
 // like io-ts but specialised to string -> maybe A
 
 class Validator<Name extends string, A> {
   readonly _A!: A
-  readonly decode: (str: string) => Res.Result<string, A>
+  readonly decode: (
+    str: string
+  ) => Res.Result<ValidationError, A>
   readonly name: Name
   constructor(
     name: Name,
-    decode: (str: string) => Res.Result<string, A>
+    decode: (str: string) => Res.Result<ValidationError, A>
   ) {
     this.decode = decode
     this.name = name
   }
 
-  validate = (str: string): Res.Result<string, A> => {
+  validate = (
+    str: string
+  ): Res.Result<ValidationError, A> => {
     return this.decode(str)
   }
 
@@ -36,26 +41,29 @@ export type ReturnType<V> = V extends AnyValidator
 
 const validator = <Name extends string, A>(
   name: Name,
-  validate: (str: string) => Res.Result<string, A>
+  validate: (str: string) => Res.Result<ValidationError, A>
 ): Validator<Name, A> => new Validator(name, validate)
 
 export const integerValidator = validator<
   'integer',
   number
->('integer', (a) => {
+>('integer', a => {
   const i = parseInt(a, 10)
   return i
     ? Res.success(i)
-    : Res.failure(`Could not parse ${a} into an integer`)
+    : Res.failure({ expected: 'integer', value: a })
 })
 
 export const nonEmptyStringValidator = validator<
   'nonEmptyString',
   string
->('nonEmptyString', (a) =>
+>('nonEmptyString', a =>
   a.length > 0
     ? Res.success(a)
-    : Res.failure('String must be non-empty')
+    : Res.failure({
+        expected: 'non-empty string',
+        value: a,
+      })
 )
 
 export const stringLiteralValidator = <
@@ -63,10 +71,10 @@ export const stringLiteralValidator = <
 >(
   lit: Literal
 ) =>
-  validator<'Literal', Literal>('Literal', (a) =>
+  validator<'Literal', Literal>('Literal', a =>
     a === lit
       ? Res.success(lit)
-      : Res.failure(`${a} does not match ${lit}`)
+      : Res.failure({ expected: lit, value: a })
   )
 
 export const caseInsensitiveStringLiteralValidator = <
@@ -74,12 +82,10 @@ export const caseInsensitiveStringLiteralValidator = <
 >(
   lit: Literal
 ) =>
-  validator<'Literal', Literal>('Literal', (a) =>
+  validator<'Literal', Literal>('Literal', a =>
     a.toUpperCase() === lit.toUpperCase()
       ? Res.success(lit)
-      : Res.failure(
-          `${a} does not case insensitively match ${lit}`
-        )
+      : Res.failure({ expected: lit, value: a })
   )
 
 // validator that matches one of the items inside
@@ -87,10 +93,10 @@ export const oneOf = <Names extends string[], A>(
   validator1: Validator<Names[number], A>,
   ...validators: Validator<Names[number], A>[]
 ): Validator<'OneOf', A> =>
-  validator<'OneOf', A>('OneOf', (a) =>
+  validator<'OneOf', A>('OneOf', a =>
     Res.first(
       validator1.validate(a),
-      ...validators.map((v) => v.validate(a))
+      ...validators.map(v => v.validate(a))
     )
   )
 
@@ -99,5 +105,5 @@ export const getArbitrary = <Name extends string, A>(
 ): fc.Arbitrary<A> =>
   fc
     .string()
-    .filter((a) => Res.isSuccess(validator.validate(a)))
+    .filter(a => Res.isSuccess(validator.validate(a)))
     .map(validator.decodeOrThrow)
