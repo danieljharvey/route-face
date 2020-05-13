@@ -8,7 +8,7 @@ import {
   PostMethod,
   Piece,
   FromCodec,
-  ValidationError,
+  MethodError,
 } from './Types'
 import * as HTTP from '../domain/Methods'
 
@@ -30,15 +30,21 @@ export const eitherToResult = <A>(
 export const validateMethod = <PostData extends Piece>(
   method: Method<PostData>,
   methodString: string
-): Res.Result<ValidationError, true> => {
+): Res.Result<MethodError, true> => {
   if (method.method === 'get') {
-    return Res.map(
-      HTTP.methodGet.validate(methodString),
-      _ => true
+    return Res.mapError(
+      Res.map(
+        HTTP.methodGet.validate(methodString),
+        _ => true
+      ),
+      e => ({ type: 'MethodError', matches: e })
     )
   }
-  return Res.map(
-    HTTP.methodPost.validate(methodString),
-    _ => true
+  return Res.mapError(
+    Res.map(
+      HTTP.methodPost.validate(methodString),
+      _ => true
+    ),
+    e => ({ type: 'MethodError', matches: e })
   )
 }

@@ -20,6 +20,7 @@ const getUser = E.endpoint(
   R.makeRoute()
     .path('users')
     .number()
+    .path('details')
     .get()
     .stringHeader('authtoken')
     .done(),

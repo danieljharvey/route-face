@@ -63,6 +63,23 @@ export type Request = {
 }
 
 ///
+
+type RouteError = unknown
+
+export type RouteErrors = {
+  method: MethodError | null
+  path: PathError | null
+  headers: HeaderError | null
+  postData: PostDataError | null
+}
+
+export type MethodError = {
+  type: 'MethodError'
+  matches: ValidationError
+}
+
+///
+
 export type ValidationError = {
   value: string
   expected: string
@@ -71,6 +88,30 @@ export type ValidationError = {
 export type PathError = {
   type: 'PathError'
   matches: Res.Result<ValidationError, string>[]
+}
+
+///
+
+export type HeaderHit = {
+  name: string
+  value: string
+}
+
+export type HeaderMiss = {
+  name: string
+  value: ValidationError
+}
+
+export type HeaderError = {
+  type: 'HeaderError'
+  matches: Res.Result<HeaderMiss, HeaderHit>[]
+}
+
+///
+
+export type PostDataError = {
+  type: 'PostDataError'
+  errors: string[]
 }
 
 ////

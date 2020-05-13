@@ -10,7 +10,7 @@ import {
   AnyPieces,
   RouteOutput,
   Request,
-  PathError,
+  RouteErrors,
 } from './router/Types'
 export {
   AnyPieces,
@@ -118,15 +118,6 @@ const modifyRouteMethod = <
   ...route,
   method: f(route.method),
 })
-
-type RouteError = any
-
-type RouteErrors = {
-  method: RouteError | null
-  path: PathError | null
-  headers: RouteError | null
-  postData: RouteError | null
-}
 
 const splitUrl = (whole: string): string[] =>
   whole.split('/').filter(a => a.length > 0)

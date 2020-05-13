@@ -71,7 +71,10 @@ export const runEndpoint = <
   )
   if (Res.isFailure(headers)) {
     return Promise.resolve(
-      errors.headerMismatch(request.url, headers.value)
+      errors.headerMismatch(
+        request.url,
+        JSON.stringify(headers.value)
+      )
     )
   }
   return endpoint
