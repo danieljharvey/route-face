@@ -2,7 +2,6 @@ import * as R from './Router'
 import * as HTTP from './domain/Methods'
 import * as Res from './Result'
 import * as t from 'io-ts'
-import { errors, APIError } from './Errors'
 
 const splitUrl = (whole: string): string[] =>
   whole.split('/').filter(a => a.length > 0)
@@ -50,42 +49,15 @@ export const runEndpoint = <
 >(
   endpoint: Endpoint<Pieces, Headers, PostData, A>,
   request: R.Request
-): Promise<A | APIError> => {
-  const method = R.validateMethod(
-    endpoint.route.method,
-    request.method
+): Promise<A> => {
+  const stuff = R.validateRequestWithRoute(
+    endpoint.route,
+    request
   )
-  if (Res.isFailure(method)) {
-    return Promise.reject(method.value)
+
+  if (Res.isSuccess(stuff)) {
+    return endpoint.handler(stuff.value)
   }
-  const path = R.validatePath(
-    endpoint.route.pieces,
-    splitUrl(request.url)
-  )
-  if (Res.isFailure(path)) {
-    return Promise.reject(path.value)
-  }
-  const headers = R.validateHeaders(
-    endpoint.route.headers,
-    request.headers
-  )
-  if (Res.isFailure(headers)) {
-    return Promise.resolve(
-      errors.headerMismatch(
-        request.url,
-        JSON.stringify(headers.value)
-      )
-    )
-  }
-  return endpoint
-    .handler({
-      path: path.value,
-      headers: headers.value,
-      postData: method.value,
-    })
-    .catch(e => {
-      return Promise.resolve(
-        errors.handlerError(request.url, e)
-      )
-    })
+  const errors = stuff.value
+  return Promise.reject(errors)
 }
