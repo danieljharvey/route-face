@@ -2,31 +2,48 @@ import * as t from 'io-ts'
 import * as Res from './Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
-import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
 import {
   Route,
   Method,
   Piece,
   AnyHeaders,
   AnyPieces,
+  RouteOutput,
+  Request,
+  RouteErrors,
 } from './router/Types'
 export {
   AnyPieces,
   AnyHeaders,
   RouteTypes,
   Route,
+  Request,
   FromCodecTuple,
   FromCodecObject,
+  RouteOutput,
+  ValidationError,
 } from './router/Types'
-import { add, path, string, number } from './router/Path'
+import {
+  add,
+  path,
+  string,
+  number,
+  validatePath,
+} from './router/Path'
 export { validatePath } from './router/Path'
 import {
   addHeader,
   stringHeader,
   numberHeader,
+  validateHeaders,
 } from './router/Headers'
 export { validateHeaders } from './router/Headers'
-import { getMethod, postMethod } from './router/Method'
+import {
+  getMethod,
+  postMethod,
+  validateMethod,
+} from './router/Method'
+import { validatePostData } from './router/PostData'
 export { validateMethod } from './router/Method'
 
 export const eitherToResult = <A>(
@@ -101,6 +118,66 @@ const modifyRouteMethod = <
   ...route,
   method: f(route.method),
 })
+
+const splitUrl = (whole: string): string[] =>
+  whole.split('/').filter(a => a.length > 0)
+
+// excuse the inelegance, cba to make a nicer chaining thing right now
+export const validateRequestWithRoute = <
+  Pieces extends AnyPieces,
+  Headers extends AnyHeaders,
+  PostData extends t.Mixed,
+  A
+>(
+  route: Route<Pieces, Headers, PostData>,
+  request: Request
+): Res.Result<
+  RouteErrors,
+  RouteOutput<Pieces, Headers, PostData>
+> => {
+  const method = validateMethod(
+    route.method,
+    request.method
+  )
+  const postData = validatePostData(
+    route.method,
+    request.postData
+  )
+
+  const path = validatePath(
+    route.pieces,
+    splitUrl(request.url)
+  )
+  const headers = validateHeaders(
+    route.headers,
+    request.headers
+  )
+  if (
+    Res.isSuccess(method) &&
+    Res.isSuccess(path) &&
+    Res.isSuccess(postData) &&
+    Res.isSuccess(headers)
+  ) {
+    return Res.success({
+      path: path.value,
+      headers: headers.value,
+      postData: method.value,
+    })
+  }
+  return Res.failure({
+    method: failureOrNull(method),
+    path: failureOrNull(path),
+    headers: failureOrNull(headers),
+    postData: failureOrNull(postData),
+  })
+}
+
+const failureOrNull: <E, A>(
+  result: Res.Result<E, A>
+) => E | null = Res.matchResult(
+  e => e,
+  _ => null
+)
 
 ///
 

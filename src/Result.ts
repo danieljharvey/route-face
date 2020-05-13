@@ -43,6 +43,12 @@ export const bind = <E, A, B>(
 ): Result<E, B> =>
   isFailure(result) ? result : f(result.value)
 
+export const mapError = <E, F, A>(
+  result: Result<E, A>,
+  f: (e: E) => F
+): Result<F, A> =>
+  isSuccess(result) ? result : failure(f(result.value))
+
 const id = <A>(a: A): A => a
 
 export const matchResult = <E, A, B>(

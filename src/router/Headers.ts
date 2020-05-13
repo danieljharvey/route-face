@@ -8,31 +8,42 @@ import {
   AddHeader,
   AnyHeaders,
   FromCodecObject,
+  HeaderError,
+  HeaderMiss,
+  ValidationError,
 } from './Types'
 
 export const eitherToResult = <A>(
   either: E.Either<t.Errors, A>
-): Res.Result<string, A> =>
-  either._tag === 'Left'
-    ? Res.failure(reporter(either).join('/n'))
-    : Res.success(either.right)
+): Res.Result<ValidationError, A> =>
+  E.fold<t.Errors, A, Res.Result<ValidationError, A>>(
+    left =>
+      Res.failure({
+        value: left[0].value,
+        expected: left[0].context[0].type.name,
+      } as ValidationError),
+    (right: A) => Res.success(right)
+  )(either)
 
 // do these url pieces satisfy the parts
 export const validateHeaders = <Headers extends AnyHeaders>(
   headers: Headers,
   requestHeaders: { [key: string]: string }
-): Res.Result<string, FromCodecObject<Headers>> =>
-  Res.map(
-    Res.all(
-      Object.entries(headers).map(([key, piece]) => {
-        // TODO - map failure to a more helpful error message
-        const result = eitherToResult(
-          piece.decode(requestHeaders[key])
-        )
-        return Res.map(result, a => [key, a])
-      })
-    ),
-    as =>
+): Res.Result<HeaderError, FromCodecObject<Headers>> => {
+  // turn into list of matches/fails
+  const results = Object.entries(headers).map(
+    ([key, piece]) => {
+      const result = Res.mapError(
+        eitherToResult(piece.decode(requestHeaders[key])),
+        e => ({ name: key, value: e })
+      )
+      return Res.map(result, a => [key, a] as const)
+    }
+  )
+
+  const allSucceeds = Res.all(results)
+  if (Res.isSuccess(allSucceeds)) {
+    return Res.map(allSucceeds, as =>
       as.reduce<Headers>(
         (theseHeaders: Headers, [key, value]) => ({
           ...theseHeaders,
@@ -40,7 +51,16 @@ export const validateHeaders = <Headers extends AnyHeaders>(
         }),
         {} as Headers
       )
-  ) as Res.Result<string, FromCodecObject<Headers>>
+    ) as Res.Result<HeaderError, FromCodecObject<Headers>>
+  }
+  const tidiedErrors = results.map(res =>
+    Res.map(res, ([name, value]) => ({ name, value }))
+  )
+  return Res.failure({
+    type: 'HeaderError',
+    matches: tidiedErrors,
+  })
+}
 
 export const addHeader = <
   HeaderName extends string,

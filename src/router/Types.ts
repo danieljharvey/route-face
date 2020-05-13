@@ -1,4 +1,5 @@
 import * as t from 'io-ts'
+import * as Res from '../Result'
 
 // convert validators into output values
 export type FromCodec<T> = T extends t.Mixed
@@ -39,6 +40,81 @@ export type Route<
   headers: Headers
   method: Method<PostData>
 }
+
+//////
+//
+export type RouteOutput<
+  Pieces extends AnyPieces,
+  Headers extends AnyHeaders,
+  PostData extends t.Mixed
+> = {
+  path: FromCodecTuple<Pieces>
+  headers: FromCodecObject<Headers>
+  postData: t.TypeOf<PostData>
+}
+
+////
+
+export type Request = {
+  url: string
+  headers: { [key: string]: string }
+  method: string
+  postData: object
+}
+
+///
+
+type RouteError = unknown
+
+export type RouteErrors = {
+  method: MethodError | null
+  path: PathError | null
+  headers: HeaderError | null
+  postData: PostDataError | null
+}
+
+export type MethodError = {
+  type: 'MethodError'
+  matches: ValidationError
+}
+
+///
+
+export type ValidationError = {
+  value: string
+  expected: string
+}
+
+export type PathError = {
+  type: 'PathError'
+  matches: Res.Result<ValidationError, string>[]
+}
+
+///
+
+export type HeaderHit = {
+  name: string
+  value: string
+}
+
+export type HeaderMiss = {
+  name: string
+  value: ValidationError
+}
+
+export type HeaderError = {
+  type: 'HeaderError'
+  matches: Res.Result<HeaderMiss, HeaderHit>[]
+}
+
+///
+
+export type PostDataError = {
+  type: 'PostDataError'
+  errors: string[]
+}
+
+////
 
 export type GetMethod = {
   method: 'get'

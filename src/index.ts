@@ -24,6 +24,7 @@ const getUser = E.endpoint(
   R.makeRoute()
     .path('users')
     .number()
+    .path('details')
     .get()
     .stringHeader('authtoken')
     .done(),
@@ -62,7 +63,7 @@ app.use(bodyParser())
 // grab the stuff from the Koa context that we need
 const koaContextToRequest = (
   ctx: Koa.Context
-): E.Request => ({
+): R.Request => ({
   url: ctx.request.url,
   headers: ctx.request.headers,
   method: ctx.request.method,
