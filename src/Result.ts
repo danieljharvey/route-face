@@ -75,6 +75,10 @@ export const all = <E, A>(
     )(val)
   }, success<E, A[]>([]))
 
+export const any = <E, A>(
+  results: Result<E, A>[]
+): Result<E, A[]> => all(results.filter(isSuccess))
+
 export const first = <E, A>(
   result: Result<E, A>,
   ...results: Result<E, A>[]

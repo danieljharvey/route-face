@@ -28,7 +28,7 @@ const myFirstCont: C.Cont<
   unknown,
   unknown,
   string
-> = C.cont((success) => success('Hello!'))
+> = C.cont(success => success('Hello!'))
 
 // what happens though?
 // nothing!
@@ -38,7 +38,8 @@ const myFirstCont: C.Cont<
 
 // Let's do that
 
-C.run(myFirstCont, {}, console.log)
+// C.run(myFirstCont, {}, console.log)
+
 // console.log -> { type: 'Success', value: "Hello!" }
 
 // this gives us our message as well as the type: "Success"
@@ -49,7 +50,9 @@ C.run(myFirstCont, {}, console.log)
 const myNiceQuickCont = C.pure(['Dogs', 'are', 'nice'])
 
 // our whole endeavour becomes a little nicer now...
-C.run(myNiceQuickCont, {}, console.log)
+
+// C.run(myNiceQuickCont, {}, console.log)
+
 // console.log -> { type: 'Success', value: [ 'Dogs', 'are', 'nice' ] }
 
 // Success is all very well and good, but where there is light there must also be darkness
@@ -64,7 +67,9 @@ const badCont = C.pureFail('Oh no!')
 type BadCont = C.Cont<unknown, string, unknown>
 
 // let's run it...
-C.run(badCont, {}, console.log)
+
+// C.run(badCont, {}, console.log)
+
 // console.log -> { type: 'Failure', value: 'Oh no!' }
 
 // The difference between this and something like a Promise
@@ -88,7 +93,8 @@ const myLuckyCont: C.Cont<
     : failure('Something went very wrong')
 })
 
-C.run(myLuckyCont, {}, console.log)
+// C.run(myLuckyCont, {}, console.log)
+
 // console.log -> { type: 'Failure', value: 'Something went very wrong' }
 // or
 // console.log -> { type: 'Success', value: ['Dogs', 'are', 'nice'] }
@@ -111,13 +117,15 @@ const myReaderLoggerCont = (
     success(message)
   })
 
-C.run(myReaderLoggerCont('hello'), 'dev', console.log)
+// C.run(myReaderLoggerCont('hello'), 'dev', console.log)
+
 // console.log -> dev: hello
 // console.log -> { type: 'Success', value: 'hello' }
 
 // in prod we don't want that logging though
-//
-C.run(myReaderLoggerCont('hello'), 'prod', console.log)
+
+// C.run(myReaderLoggerCont('hello'), 'prod', console.log)
+
 // we just get the return value
 // console.log -> { type: 'Success', value: 'hello' }
 
@@ -139,13 +147,15 @@ const dogCont = C.fromPromise(
       .get<DogResponse>(
         `${env.baseUrl}/breed/samoyed/images/random`
       )
-      .then((response) => response.data as DogResponse),
-  (e) => e.message || 'Unknown error'
+      .then(response => response.data as DogResponse),
+  e => e.message || 'Unknown error'
 )
 
 // let's run it...
 // we're passing defaultEnv which contains our paths
-C.run(dogCont, defaultEnv, console.log)
+
+// C.run(dogCont, defaultEnv, console.log)
+
 /*
  * console.log ->
  * { type: 'Success',
@@ -173,15 +183,15 @@ const dogByBreedCont = (
   breed: Breed
 ): C.Cont<Env, string, string> =>
   C.fromPromise(
-    (env) =>
+    env =>
       axios
         .get<DogResponse>(getByBreed(env.baseUrl, breed))
-        .then((response) =>
+        .then(response =>
           response.data.status === 'success'
             ? Promise.resolve(response.data.message)
             : Promise.reject('Dog API did not succeed')
         ),
-    (e) => e.message
+    e => e.message
   )
 
 // Why stop at one dog?
@@ -193,7 +203,8 @@ const manyBreeds = C.list(
   dogByBreedCont('whippet')
 ).map(Res.all)
 
-C.run(manyBreeds, defaultEnv, console.log)
+// C.run(manyBreeds, defaultEnv, console.log)
+
 // if it goes wrong we get the first error:
 /*
 { type: 'Failure', value: 'Dog API did not succeed'}
@@ -211,17 +222,18 @@ C.run(manyBreeds, defaultEnv, console.log)
   ]                                                                       
 }*/
 
-/*
 // there is also the 'any' variety
-const manyBreedsCont2 = A.listAnyCont(dogByBreedCont, [
-  'pug',
-  'samoyed',
-  'shiba',
-  'whippet',
-])
+const manyBreedsCont2 = C.list(
+  dogByBreedCont('pug'),
+  dogByBreedCont('samoyed'),
+  dogByBreedCont('shiba'),
+  dogByBreedCont('whippet')
+).map(Res.any)
 
-A.runCont(manyBreedsCont2).then(console.log)
+//C.run(manyBreedsCont2, defaultEnv, console.log)
+//
 // this will return only the successful results
+
 /*
 {                                                                                                     
   type: 'Success',                                                                                  
@@ -234,7 +246,6 @@ A.runCont(manyBreedsCont2).then(console.log)
 // What if our dog API is slow or we're repeating ourselves? We might want a
 // local cache of results
 
-/*
 let dogCache: { [key: string]: string } = {}
 
 type DogValue = {
@@ -243,102 +254,76 @@ type DogValue = {
 }
 
 // saves the cache, returns nothing
-const saveCache = (
+const saveCache = <Ctx>(
   breed: Breed,
   url: string
-): A.Cont<string, void> =>
-  A.createSimple({
-    simpleAction: () => {
-      dogCache[breed] = url
-      return Promise.resolve()
-    },
-    simpleCatcher: _ =>
-      `Error saving ${url} to breed ${breed}`,
+): C.Cont<Ctx, string, void> =>
+  C.cont(success => {
+    dogCache[breed] = url
+    success(undefined)
   })
 
 // reads the item from the cache if it exists
 // we are using pureAction here as our function only reads
 // and does no real actions
-const readCache = (
-  breed: Breed
-): A.Cont<string, DogValue> =>
-  A.createPure({
-    pureAction:
-      dogCache[breed] !== undefined
-        ? A.success({
-            fromCache: true,
-            value: dogCache[breed],
-          })
-        : A.failure(`No cache for ${breed}`),
-    catcher: _ =>
-      A.failure(`Error fetching ${breed} from cache`),
-  })
+const readCache = (breed: Breed) =>
+  C.cont<Env, string, DogValue>((success, failure) =>
+    dogCache[breed] !== undefined
+      ? success({
+          fromCache: true,
+          value: dogCache[breed],
+        })
+      : failure(`No cache for ${breed}`)
+  )
 
 // saves the item in the cache, returns it regardless of whether it succeeded
 // or not
-const saveAndReturn = (breed: Breed, url: string) =>
-  A.nextCont(saveCache(breed, url), A.pure(url))
+const saveAndReturn = <Ctx>(
+  breed: Breed,
+  url: string
+): C.Cont<Ctx, string, string> =>
+  saveCache(breed, url).bind(_ => C.pure(url))
 
-// get dog, grab interesting part (the url), save it in cache, and mark as not from cache
-const dogByBreed2 = (
-  breed: Breed
-): A.Cont<string, DogValue> =>
-  A.mapCont(
-    A.bindCont(dogByBreedCont(breed), url =>
-      saveAndReturn(breed, url)
-    ),
-    url => ({
-      fromCache: false,
-      value: url,
-    })
-  )
-
-// we can also use chain() to write the above in a slightly more readable
-// fashion
-const dogByBreed3 = (
-  breed: Breed
-): A.Cont<string, DogValue> =>
-  A.chain(dogByBreedCont(breed))
+// fetch from API, save in cache
+const dogByBreedWithCache = (breed: Breed) =>
+  dogByBreedCont(breed)
     .bind(url => saveAndReturn(breed, url))
     .map(url => ({ fromCache: false, value: url }))
-    .done()
 
-const dogFromAPIOrCache = (
-  breed: Breed
-): A.Cont<string, DogValue> =>
-  A.altCont(readCache(breed), dogByBreed3(breed))
+const dogFromAPIOrCache = (breed: Breed) =>
+  readCache(breed).alt([dogByBreedWithCache(breed)])
 
 // let's try it for a bunch of dogs
-const fetchManyDogs = A.listAnyCont(dogFromAPIOrCache, [
-  'pug',
-  'samoyed',
-  'shiba',
-  'whippet',
-])
+const fetchManyDogs = C.list(
+  dogFromAPIOrCache('pug'),
+  dogFromAPIOrCache('samoyed'),
+  dogFromAPIOrCache('shiba'),
+  dogFromAPIOrCache('whippet')
+).map(Res.all)
 
-console.log('dogCache', dogCache)
+// console.log('dogCache before', dogCache)
 
 // and run it twice
-A.runCont(fetchManyDogs)
-  .then(a => console.log('first time', a))
+
+/*C.runToPromise(fetchManyDogs, defaultEnv)
+  .then(a => console.log('first response', a))
   .then(() =>
-    A.runCont(fetchManyDogs).then(a =>
-      console.log('second time', a)
-    )
+    C.runToPromise(fetchManyDogs, defaultEnv).then(a => {
+      console.log('second response', a)
+      console.log('dogCache after', dogCache)
+    })
   )
+*/
 
 // what if we wish to find out which dog is fastest (at loading)?
-const getFastestDog = A.chain(
-  A.raceCont(
-    dogFromAPIOrCache('greyhound/italian'),
-    dogFromAPIOrCache('whippet')
-  )
-)
+const getFastestDog = dogFromAPIOrCache('greyhound/italian')
+  .race([dogFromAPIOrCache('whippet')])
   .map(a => `The winner is ${a.value}`)
-  .done()
 
 // this time it was the Italian Greyhound
-A.runCont(getFastestDog).then(console.log)
+
+// C.run(getFastestDog, defaultEnv, console.log)
+
 /*
 {
   type: 'Success',
@@ -346,22 +331,16 @@ A.runCont(getFastestDog).then(console.log)
 }
 */
 
-/*
 // The pug is going to struggle here, let's give it a 200ms headstart
-const raceTwo = A.chain(
-  A.raceCont(
-    A.withDelay(
-      dogFromAPIOrCache('greyhound/italian'),
-      200
-    ),
-    dogFromAPIOrCache('pug')
-  )
-)
+const raceTwo = dogFromAPIOrCache('greyhound/italian')
+  .delay(200)
+  .race([dogFromAPIOrCache('pug')])
   .map(a => `The winner is ${a.value}`)
-  .done()
 
 // well done!
-A.runCont(raceTwo).then(console.log)
+
+// C.run(raceTwo, defaultEnv, console.log)
+
 /*
 {
   type: 'Success',
@@ -369,29 +348,23 @@ A.runCont(raceTwo).then(console.log)
 }
 */
 
-/*
 // an action that mostly fails
-const sometimesFail = A.create({
-  action: () =>
-    Promise.resolve(
-      Math.random() > 0.8
-        ? A.success('Good news')
-        : A.failure('oh dear')
-    ),
-  catcher: _ =>
-    A.failure('Something inexplicable went wrong'),
-})
+const sometimesFail = C.cont((success, failure) =>
+  Math.random() > 0.8
+    ? success('Good news')
+    : failure('oh dear')
+)
 
 // an API that mostly fails
 const flakyDogAPI = (breed: Breed) =>
-  A.chain(sometimesFail)
-    .bind(_ => dogByBreedCont(breed))
-    .done()
+  sometimesFail.bind(_ => dogByBreedCont(breed))
 
 // this mostly fails
-A.runCont(flakyDogAPI('pug')).then(a =>
+
+/*C.run(flakyDogAPI('pug'), defaultEnv, a =>
   console.log('Flaky API', a)
-)
+)*/
+
 /*
 { 
   type: 'Failure',
@@ -401,3 +374,68 @@ A.runCont(flakyDogAPI('pug')).then(a =>
 
 // that's shit right?
 // enter: retry
+
+// this will try 5 times before giving up
+
+/*
+C.run(flakyDogAPI('pug').retry(4), defaultEnv, a =>
+  console.log('Flaky API with retries', a)
+)
+*/
+
+// alternatively though, we might want to implement stuff like back off
+
+// retryWithCount gives a count so we can change our approach each time
+// attemptNum starts at 0 so we'll get delays of 0ms, 10ms, 40ms, 90ms, 160ms
+
+const withBackoff = C.retryWithCount(
+  attemptNum =>
+    flakyDogAPI('pug').delay(attemptNum * attemptNum * 10),
+  5
+)
+
+/*
+C.run(withBackoff, defaultEnv, a =>
+  console.log('Flaky API with backoff', a)
+)
+*/
+
+// some APIs are so flaky that they just stall and don't time out for ages
+// this is easy to tame
+
+const withTimeout = flakyDogAPI('pug').timeout(
+  20,
+  'Request timed out'
+)
+
+// if the action takes longer than 20ms, we get the error instead
+/*
+C.run(
+  withTimeout,
+  defaultEnv,
+  a => console.log('Flaky API with timeout', a)
+)
+*/
+
+// we don't need to return a callback
+// runToPromise returns a Promise with our result A in it,
+// or fails with the error value E in it
+const promise = C.runToPromise(withTimeout, defaultEnv)
+  .then(a => {
+    console.log('our success value', a)
+  })
+  .catch(e => {
+    console.log('our failure value', e)
+  })
+
+// or runToResolvingPromise returns a resolving promise that contains a Result
+// which contains either success A or error E.
+const resolvingPromise = C.runToResolvingPromise(
+  withTimeout,
+  defaultEnv
+).then(
+  Res.matchResult(
+    e => console.log('failure value', e),
+    a => console.log('success value', a)
+  )
+)

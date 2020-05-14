@@ -49,6 +49,9 @@ export class Cont<Ctx, E, A> {
   timeout(delayMs: number, error: E) {
     return withTimeout(delayMs, error, this)
   }
+  retry(retries: number) {
+    return retry(retries, this)
+  }
 }
 
 /* CONSTUCTORS */
@@ -74,7 +77,7 @@ export const contRead = <Ctx, E, A>(
 // simplest constructor, give it an A, and it gives you a Cont that will
 // return that A on request
 export const pure = <Ctx, E, A>(a: A): Cont<Ctx, E, A> =>
-  cont((success) => success(a))
+  cont(success => success(a))
 
 export const pureFail = <Ctx, E, A>(
   e: E
@@ -89,7 +92,7 @@ export const fromPromise = <Ctx, E, A>(
   contRead((ctx, success, failure) =>
     source(ctx)
       .then(success)
-      .catch((e) => failure(catcher(e)))
+      .catch(e => failure(catcher(e)))
   )
 
 //
@@ -109,8 +112,8 @@ export const run = <Ctx, E, A>(
 ): void =>
   cont.body(
     ctx,
-    (a) => next(R.success(a)),
-    (e) => next(R.failure(e))
+    a => next(R.success(a)),
+    e => next(R.failure(e))
   )
 
 export const runToPromise = <Ctx, E, A>(
@@ -119,6 +122,18 @@ export const runToPromise = <Ctx, E, A>(
 ): Promise<A> =>
   new Promise((resolve, reject) =>
     cont.body(ctx, resolve, reject)
+  )
+
+export const runToResolvingPromise = <Ctx, E, A>(
+  cont: Cont<Ctx, E, A>,
+  ctx: Ctx
+): Promise<R.Result<E, A>> =>
+  new Promise(resolve =>
+    cont.body(
+      ctx,
+      a => resolve(R.success(a)),
+      e => resolve(R.failure(e))
+    )
   )
 
 /* METHODS */
@@ -143,8 +158,8 @@ export const catchError = <Ctx, E, A>(
 ): Cont<Ctx, E, A> =>
   bimap(
     R.matchResult(
-      (e) => g(e),
-      (a) => R.success(a)
+      e => g(e),
+      a => R.success(a)
     ),
     cont
   )
@@ -175,7 +190,7 @@ export const bind = <Ctx, CtxB, E, A, B>(
     run(
       contA,
       ctx,
-      R.matchResult(failure, (a) =>
+      R.matchResult(failure, a =>
         run(
           toContB(a),
           ctx,
@@ -190,7 +205,7 @@ export const bimap = <Ctx, E, G, A, B>(
   contA: Cont<Ctx, E, A>
 ): Cont<Ctx, G, B> =>
   contRead((ctx, success, failure) =>
-    run(contA, ctx, (val) =>
+    run(contA, ctx, val =>
       R.matchResult(failure, success)(f(val))
     )
   )
@@ -215,7 +230,7 @@ export const race = <Ctx, E, A>(
         failure(e)
       }
     }
-    ;[contA, ...conts].forEach((c) =>
+    ;[contA, ...conts].forEach(c =>
       run(c, ctx, R.matchResult(onFailure, onSuccess))
     )
   })
@@ -237,7 +252,7 @@ export const list = <Ctx, E, A>(
       }
     }
     ;[cont, ...conts].forEach((cont, index) =>
-      run(cont, ctx, (result) => store(index, result))
+      run(cont, ctx, result => store(index, result))
     )
   })
 
@@ -252,7 +267,7 @@ export const alt = <Ctx, E, A>(
       run(
         cont,
         ctx,
-        R.matchResult((e) => {
+        R.matchResult(e => {
           const nextItem = mutableConts.shift()
           if (!nextItem) {
             return failure(e)
@@ -286,3 +301,28 @@ export const withTimeout = <Ctx, E, A>(
   cont: Cont<Ctx, E, A>
 ): Cont<Ctx, E, A> =>
   race(cont, withDelay(timeout, pureFail(error)))
+
+export const retry = <Ctx, E, A>(
+  retries: number,
+  contA: Cont<Ctx, E, A>
+): Cont<Ctx, E, A> =>
+  retries < 2
+    ? alt(contA, contA)
+    : range(retries).reduce(
+        command => alt(command, contA),
+        contA
+      )
+
+export const range = (max: number): number[] =>
+  [...Array(Math.max(max, 2)).keys()].map(i => i)
+
+export const retryWithCount = <Ctx, E, A>(
+  makeContA: (attemptCount: number) => Cont<Ctx, E, A>,
+  retries: number
+): Cont<Ctx, E, A> =>
+  retries < 2
+    ? makeContA(0)
+    : range(retries).reduce(
+        (command, index) => alt(command, makeContA(index)),
+        makeContA(0)
+      )
