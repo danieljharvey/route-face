@@ -1,4 +1,4 @@
-import * as Res from './Result'
+import * as Res from './result/Result'
 
 // what can a Route say to me?
 //

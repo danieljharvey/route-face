@@ -1,7 +1,7 @@
-import * as CRE from './ContReaderEither'
-import * as Res from './Result'
+import * as CRE from './JobReader'
+import * as Res from '../result/Result'
 
-describe('ContReaderEither', () => {
+describe('JobReaderEither', () => {
   describe('pure', () => {
     it('Returns the value inside', (done) => {
       CRE.run(CRE.pure('dog'), {}, (a) => {
@@ -38,7 +38,7 @@ describe('ContReaderEither', () => {
     })
   })
   describe('ap', () => {
-    it('Runs the function in the first Cont on the value in the second', (done) => {
+    it('Runs the function in the first Job on the value in the second', (done) => {
       CRE.run(
         CRE.ap(
           CRE.pure((a: string) => a.toUpperCase()),
@@ -54,7 +54,7 @@ describe('ContReaderEither', () => {
   })
 
   describe('bind', () => {
-    it('Chains two Conts', (done) => {
+    it('Chains two Jobs', (done) => {
       CRE.run(
         CRE.bind(CRE.pure('dog'), (a) =>
           CRE.pure(`Hello, ${a}`)

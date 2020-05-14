@@ -1,5 +1,5 @@
 import * as t from 'io-ts'
-import * as Res from './Result'
+import * as Res from '../result/Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
 import {
@@ -11,7 +11,7 @@ import {
   RouteOutput,
   Request,
   RouteErrors,
-} from './router/Types'
+} from './Types'
 export {
   AnyPieces,
   AnyHeaders,
@@ -22,29 +22,29 @@ export {
   FromCodecObject,
   RouteOutput,
   ValidationError,
-} from './router/Types'
+} from './Types'
 import {
   add,
   path,
   string,
   number,
   validatePath,
-} from './router/Path'
-export { validatePath } from './router/Path'
+} from './Path'
+export { validatePath } from './Path'
 import {
   addHeader,
   stringHeader,
   numberHeader,
   validateHeaders,
-} from './router/Headers'
-export { validateHeaders } from './router/Headers'
+} from './Headers'
+export { validateHeaders } from './Headers'
 import {
   getMethod,
   postMethod,
   validateMethod,
-} from './router/Method'
-import { validatePostData } from './router/PostData'
-export { validateMethod } from './router/Method'
+} from './Method'
+import { validatePostData } from './PostData'
+export { validateMethod } from './Method'
 
 export const eitherToResult = <A>(
   either: E.Either<t.Errors, A>
@@ -120,7 +120,7 @@ const modifyRouteMethod = <
 })
 
 const splitUrl = (whole: string): string[] =>
-  whole.split('/').filter(a => a.length > 0)
+  whole.split('/').filter((a) => a.length > 0)
 
 // excuse the inelegance, cba to make a nicer chaining thing right now
 export const validateRequestWithRoute = <
@@ -175,8 +175,8 @@ export const validateRequestWithRoute = <
 const failureOrNull: <E, A>(
   result: Res.Result<E, A>
 ) => E | null = Res.matchResult(
-  e => e,
-  _ => null
+  (e) => e,
+  (_) => null
 )
 
 ///
@@ -219,10 +219,12 @@ export const extendRoute = <
       modifyRouteHeaders(route, numberHeader(headerName))
     ),
   get: () =>
-    extendRoute(modifyRouteMethod(route, _ => getMethod())),
+    extendRoute(
+      modifyRouteMethod(route, (_) => getMethod())
+    ),
   post: <PostDataB extends Piece>(validator: PostDataB) =>
     extendRoute(
-      modifyRouteMethod(route, _ => postMethod(validator))
+      modifyRouteMethod(route, (_) => postMethod(validator))
     ),
 
   done: () => route,

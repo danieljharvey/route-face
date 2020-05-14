@@ -1,5 +1,5 @@
 import * as E from './Endpoint'
-import * as R from './Router'
+import * as R from './router/Router'
 import * as t from 'io-ts'
 
 describe('Endpoint', () => {
@@ -25,13 +25,13 @@ describe('Endpoint', () => {
       }
     )
 
-    it('Runs a get endpoint and totally nails the password', done => {
+    it('Runs a get endpoint and totally nails the password', (done) => {
       E.runEndpoint(getSample, {
         method: 'get',
         headers: { 'secret-token': 'costanza' },
         url: '/posts/100/view/',
         postData: {},
-      }).then(a => {
+      }).then((a) => {
         expect(a).toEqual('good')
         done()
       })
@@ -66,13 +66,13 @@ describe('Endpoint', () => {
       }
     )
 
-    it('Runs a post endpoint and totally nails the password', done => {
+    it('Runs a post endpoint and totally nails the password', (done) => {
       E.runEndpoint(postSample, {
         method: 'post',
         headers: { 'secret-token': 'costanza' },
         url: '/posts/100/view/',
         postData: { name: 'kramer', age: 200 },
-      }).then(a => {
+      }).then((a) => {
         expect(a).toEqual('good')
         done()
       })

@@ -1,44 +1,31 @@
 import axios from 'axios'
-import * as C from '../src/ContReaderEither'
-import * as Res from '../src/Result'
+import * as J from '../src/job/job'
+import * as Res from '../src/result/Result'
 
-// an Cont is a box in which you capture something effectful
+// an Job is a box in which you capture something effectful
 // along with some error handling
 
-/*
-export type Cont<Ctx, E, A> = {
-  type: 'Cont'
-  body: (
-    context: Ctx,
-    success: (a: A) => void,
-    failure: (e: E) => void
-  ) => void
-}
-*/
-
-// it has three type parameters:
-// Ctx, the type of the context
+// it has two type parameters:
 // E, which is the type of the errors
 // A, the type of the result
 
 // we'll worry about the A first, and come back to the others
-// let's make our first Cont
+// let's make our first Job
 
-const myFirstCont: C.Cont<
-  unknown,
+const myFirstJob: J.Job<
   unknown,
   string
-> = C.cont(success => success('Hello!'))
+> = J.makeJob(success => success('Hello!'))
 
 // what happens though?
 // nothing!
 
-// That's because our Cont is Lazy.
+// That's because our Job is Lazy.
 // it means we can run it whenever WE want.
 
 // Let's do that
 
-// C.run(myFirstCont, {}, console.log)
+J.run(myFirstJob, console.log)
 
 // console.log -> { type: 'Success', value: "Hello!" }
 
@@ -47,28 +34,27 @@ const myFirstCont: C.Cont<
 
 // the whole deal is quite verbose though!
 // fortunately we have a function that does this task that we often want to do, called pure
-const myNiceQuickCont = C.pure(['Dogs', 'are', 'nice'])
+const myNiceQuickJob = J.pure(['Dogs', 'are', 'nice'])
 
 // our whole endeavour becomes a little nicer now...
 
-// C.run(myNiceQuickCont, {}, console.log)
+J.run(myNiceQuickJob, console.log)
 
 // console.log -> { type: 'Success', value: [ 'Dogs', 'are', 'nice' ] }
 
 // Success is all very well and good, but where there is light there must also be darkness
 // We can also express failure too
 
-const badCont = C.pureFail('Oh no!')
+const badJob = J.pureFail('Oh no!')
 
-// this is the type of badCont,
-// Ctx is unknown
+// this is the type of badJob,
 // E is string
 // A is unknown
-type BadCont = C.Cont<unknown, string, unknown>
+type BadJob = J.Job<string, unknown>
 
 // let's run it...
 
-// C.run(badCont, {}, console.log)
+J.run(badJob, console.log)
 
 // console.log -> { type: 'Failure', value: 'Oh no!' }
 
@@ -77,84 +63,46 @@ type BadCont = C.Cont<unknown, string, unknown>
 // which means no throwing, and we know that control isn't
 // going to jump out of our functions if something goes wrong
 
-// We can express this using Cont
-// here is a Cont that either succeeds or fails
+// We can express this using Job
+// here is a Job that either succeeds or fails
 // if it success, it returns the string array ["Dogs","are","nice"]
 // if something goes wrong, it fails with "Something went very wrong"
 
-const myLuckyCont: C.Cont<
-  unknown, // Ctx, which we are ignoring for now
+const myLuckyJob: J.Job<
   string, // E, our error type (a string)
   string[] // A, our return type (an array of strings)
-> = C.cont((success, failure) => {
+> = J.makeJob((success, failure) => {
   const goodNews = Math.random() > 0.5
   return goodNews
     ? success(['Dogs', 'are', 'nice'])
     : failure('Something went very wrong')
 })
 
-// C.run(myLuckyCont, {}, console.log)
+J.run(myLuckyJob, console.log)
 
 // console.log -> { type: 'Failure', value: 'Something went very wrong' }
 // or
 // console.log -> { type: 'Success', value: ['Dogs', 'are', 'nice'] }
 
-// let's talk about the Ctx variable
-// it lets us pass around some static options
-// and access them inside the environment
-
-// we can use contRead to construct a Cont that cares about this
-
-type Environment = 'dev' | 'staging' | 'prod'
-
-const myReaderLoggerCont = (
-  message: string
-): C.Cont<Environment, unknown, string> =>
-  C.contRead((env, success) => {
-    if (env === 'dev' || env === 'staging') {
-      console.log(`${env}: ${message}`)
-    }
-    success(message)
-  })
-
-// C.run(myReaderLoggerCont('hello'), 'dev', console.log)
-
-// console.log -> dev: hello
-// console.log -> { type: 'Success', value: 'hello' }
-
-// in prod we don't want that logging though
-
-// C.run(myReaderLoggerCont('hello'), 'prod', console.log)
-
-// we just get the return value
-// console.log -> { type: 'Success', value: 'hello' }
-
 // Let's do something a little bit more Real World with a very real chance of failure
 // - fetch dog pictures
-type Env = {
-  baseUrl: string
-}
-
-const defaultEnv: Env = {
-  baseUrl: 'https://dog.ceo/api',
-}
+const baseUrl = 'https://dog.ceo/api'
 
 type DogResponse = { message: string; status: string }
 
-const dogCont = C.fromPromise(
-  (env: Env) =>
+const dogJob = J.fromPromise(
+  () =>
     axios
       .get<DogResponse>(
-        `${env.baseUrl}/breed/samoyed/images/random`
+        `${baseUrl}/breed/samoyed/images/random`
       )
       .then(response => response.data as DogResponse),
   e => e.message || 'Unknown error'
 )
 
 // let's run it...
-// we're passing defaultEnv which contains our paths
 
-// C.run(dogCont, defaultEnv, console.log)
+J.run(dogJob, console.log)
 
 /*
  * console.log ->
@@ -176,16 +124,16 @@ type Breed =
   | 'greyhound/italian'
   | 'whippet'
 
-const getByBreed = (baseUrl: string, breed: Breed) =>
+const getByBreed = (breed: Breed) =>
   `${baseUrl}/breed/${breed}/images/random`
 
-const dogByBreedCont = (
+const dogByBreedJob = (
   breed: Breed
-): C.Cont<Env, string, string> =>
-  C.fromPromise(
-    env =>
+): J.Job<string, string> =>
+  J.fromPromise(
+    () =>
       axios
-        .get<DogResponse>(getByBreed(env.baseUrl, breed))
+        .get<DogResponse>(getByBreed(breed))
         .then(response =>
           response.data.status === 'success'
             ? Promise.resolve(response.data.message)
@@ -196,14 +144,14 @@ const dogByBreedCont = (
 
 // Why stop at one dog?
 // We can do a whole bunch of them!
-const manyBreeds = C.list(
-  dogByBreedCont('pug'),
-  dogByBreedCont('samoyed'),
-  dogByBreedCont('shiba'),
-  dogByBreedCont('whippet')
+const manyBreeds = J.list(
+  dogByBreedJob('pug'),
+  dogByBreedJob('samoyed'),
+  dogByBreedJob('shiba'),
+  dogByBreedJob('whippet')
 ).map(Res.all)
 
-// C.run(manyBreeds, defaultEnv, console.log)
+J.run(manyBreeds, console.log)
 
 // if it goes wrong we get the first error:
 /*
@@ -223,14 +171,15 @@ const manyBreeds = C.list(
 }*/
 
 // there is also the 'any' variety
-const manyBreedsCont2 = C.list(
-  dogByBreedCont('pug'),
-  dogByBreedCont('samoyed'),
-  dogByBreedCont('shiba'),
-  dogByBreedCont('whippet')
+const manyBreedsJob2 = J.list(
+  dogByBreedJob('pug'),
+  dogByBreedJob('samoyed'),
+  dogByBreedJob('shiba'),
+  dogByBreedJob('whippet')
 ).map(Res.any)
 
-//C.run(manyBreedsCont2, defaultEnv, console.log)
+J.run(manyBreedsJob2, console.log)
+
 //
 // this will return only the successful results
 
@@ -254,11 +203,11 @@ type DogValue = {
 }
 
 // saves the cache, returns nothing
-const saveCache = <Ctx>(
+const saveCache = (
   breed: Breed,
   url: string
-): C.Cont<Ctx, string, void> =>
-  C.cont(success => {
+): J.Job<string, void> =>
+  J.makeJob(success => {
     dogCache[breed] = url
     success(undefined)
   })
@@ -267,7 +216,7 @@ const saveCache = <Ctx>(
 // we are using pureAction here as our function only reads
 // and does no real actions
 const readCache = (breed: Breed) =>
-  C.cont<Env, string, DogValue>((success, failure) =>
+  J.makeJob<string, DogValue>((success, failure) =>
     dogCache[breed] !== undefined
       ? success({
           fromCache: true,
@@ -278,15 +227,15 @@ const readCache = (breed: Breed) =>
 
 // saves the item in the cache, returns it regardless of whether it succeeded
 // or not
-const saveAndReturn = <Ctx>(
+const saveAndReturn = (
   breed: Breed,
   url: string
-): C.Cont<Ctx, string, string> =>
-  saveCache(breed, url).bind(_ => C.pure(url))
+): J.Job<string, string> =>
+  saveCache(breed, url).bind(_ => J.pure(url))
 
 // fetch from API, save in cache
 const dogByBreedWithCache = (breed: Breed) =>
-  dogByBreedCont(breed)
+  dogByBreedJob(breed)
     .bind(url => saveAndReturn(breed, url))
     .map(url => ({ fromCache: false, value: url }))
 
@@ -294,26 +243,25 @@ const dogFromAPIOrCache = (breed: Breed) =>
   readCache(breed).alt([dogByBreedWithCache(breed)])
 
 // let's try it for a bunch of dogs
-const fetchManyDogs = C.list(
+const fetchManyDogs = J.list(
   dogFromAPIOrCache('pug'),
   dogFromAPIOrCache('samoyed'),
   dogFromAPIOrCache('shiba'),
   dogFromAPIOrCache('whippet')
 ).map(Res.all)
 
-// console.log('dogCache before', dogCache)
+console.log('dogCache before', dogCache)
 
 // and run it twice
 
-/*C.runToPromise(fetchManyDogs, defaultEnv)
+J.runToPromise(fetchManyDogs)
   .then(a => console.log('first response', a))
   .then(() =>
-    C.runToPromise(fetchManyDogs, defaultEnv).then(a => {
+    J.runToPromise(fetchManyDogs).then(a => {
       console.log('second response', a)
       console.log('dogCache after', dogCache)
     })
   )
-*/
 
 // what if we wish to find out which dog is fastest (at loading)?
 const getFastestDog = dogFromAPIOrCache('greyhound/italian')
@@ -322,7 +270,7 @@ const getFastestDog = dogFromAPIOrCache('greyhound/italian')
 
 // this time it was the Italian Greyhound
 
-// C.run(getFastestDog, defaultEnv, console.log)
+J.run(getFastestDog, console.log)
 
 /*
 {
@@ -339,7 +287,7 @@ const raceTwo = dogFromAPIOrCache('greyhound/italian')
 
 // well done!
 
-// C.run(raceTwo, defaultEnv, console.log)
+J.run(raceTwo, console.log)
 
 /*
 {
@@ -349,7 +297,7 @@ const raceTwo = dogFromAPIOrCache('greyhound/italian')
 */
 
 // an action that mostly fails
-const sometimesFail = C.cont((success, failure) =>
+const sometimesFail = J.makeJob((success, failure) =>
   Math.random() > 0.8
     ? success('Good news')
     : failure('oh dear')
@@ -357,13 +305,11 @@ const sometimesFail = C.cont((success, failure) =>
 
 // an API that mostly fails
 const flakyDogAPI = (breed: Breed) =>
-  sometimesFail.bind(_ => dogByBreedCont(breed))
+  sometimesFail.bind(_ => dogByBreedJob(breed))
 
 // this mostly fails
 
-/*C.run(flakyDogAPI('pug'), defaultEnv, a =>
-  console.log('Flaky API', a)
-)*/
+J.run(flakyDogAPI('pug'), a => console.log('Flaky API', a))
 
 /*
 { 
@@ -377,28 +323,24 @@ const flakyDogAPI = (breed: Breed) =>
 
 // this will try 5 times before giving up
 
-/*
-C.run(flakyDogAPI('pug').retry(4), defaultEnv, a =>
+J.run(flakyDogAPI('pug').retry(4), a =>
   console.log('Flaky API with retries', a)
 )
-*/
 
 // alternatively though, we might want to implement stuff like back off
 
 // retryWithCount gives a count so we can change our approach each time
 // attemptNum starts at 0 so we'll get delays of 0ms, 10ms, 40ms, 90ms, 160ms
 
-const withBackoff = C.retryWithCount(
+const withBackoff = J.retryWithCount(
   attemptNum =>
     flakyDogAPI('pug').delay(attemptNum * attemptNum * 10),
   5
 )
 
-/*
-C.run(withBackoff, defaultEnv, a =>
+J.run(withBackoff, a =>
   console.log('Flaky API with backoff', a)
 )
-*/
 
 // some APIs are so flaky that they just stall and don't time out for ages
 // this is easy to tame
@@ -409,18 +351,15 @@ const withTimeout = flakyDogAPI('pug').timeout(
 )
 
 // if the action takes longer than 20ms, we get the error instead
-/*
-C.run(
-  withTimeout,
-  defaultEnv,
-  a => console.log('Flaky API with timeout', a)
+
+J.run(withTimeout, a =>
+  console.log('Flaky API with timeout', a)
 )
-*/
 
 // we don't need to return a callback
 // runToPromise returns a Promise with our result A in it,
 // or fails with the error value E in it
-const promise = C.runToPromise(withTimeout, defaultEnv)
+const promise = J.runToPromise(withTimeout)
   .then(a => {
     console.log('our success value', a)
   })
@@ -430,9 +369,8 @@ const promise = C.runToPromise(withTimeout, defaultEnv)
 
 // or runToResolvingPromise returns a resolving promise that contains a Result
 // which contains either success A or error E.
-const resolvingPromise = C.runToResolvingPromise(
-  withTimeout,
-  defaultEnv
+const resolvingPromise = J.runToResolvingPromise(
+  withTimeout
 ).then(
   Res.matchResult(
     e => console.log('failure value', e),

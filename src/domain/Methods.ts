@@ -1,4 +1,4 @@
-import * as V from '../Validator'
+import * as V from '../validator/Validator'
 
 export const methodGet = V.caseInsensitiveStringLiteralValidator(
   'get'

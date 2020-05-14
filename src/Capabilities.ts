@@ -1,4 +1,4 @@
-import * as C from './ContReaderEither'
+import * as JR from './jobReader/JobReader'
 
 // allows us to use data and actions in our Context
 
@@ -35,8 +35,8 @@ interface WithLog {
 
 const withLog = (str: string) => <E, A>(
   value: A
-): C.Cont<Capability<WithLog>, E, A> =>
-  C.contRead(({ actions }, success) => {
+): JR.Job<Capability<WithLog>, E, A> =>
+  JR.jobRead(({ actions }, success) => {
     actions.log(str)
     success(value)
   })
@@ -49,8 +49,8 @@ interface WithDebugLog {
 
 const withDebugLog = (str: string) => <E, A>(
   value: A
-): C.Cont<Capability<WithDebugLog>, E, A> =>
-  C.contRead(({ actions }, success) => {
+): JR.Job<Capability<WithDebugLog>, E, A> =>
+  JR.jobRead(({ actions }, success) => {
     actions.debugLog(str)
     success(value)
   })
@@ -71,12 +71,12 @@ interface WithUser {
   ) => Promise<number>
 }
 
-// here we are grabbing the getUser function from Context
+// here we are grabbing the getUser function from Jobext
 // allowing to be passed in
 // the 'Data' generic means "there is something, we don't care what"
 // this allows this function to be used with any kind of Data
 const withGetUser = (userId: number) =>
-  C.fromPromise<Capability<WithUser>, string, User>(
+  JR.fromPromise<Capability<WithUser>, string, User>(
     ({ actions }) => actions.getUser(userId),
     (e) => 'Error fetching user!'
   )
@@ -86,7 +86,7 @@ type WithAuthToken = {
 }
 
 const withSaveUser = (user: User) =>
-  C.fromPromise<
+  JR.fromPromise<
     CapabilityWithData<WithAuthToken, WithUser>,
     string,
     number
@@ -139,13 +139,13 @@ const bigCommand = withGetUser(100)
   }))
   .bind(withSaveUser)
 
-C.run(
+JR.run(
   bigCommand,
   allCommands({ authToken: 'hello' }),
   console.log
 )
 
-C.run(
+JR.run(
   bigCommand,
   allCommands({ authToken: 'supersecretyes' }),
   console.log

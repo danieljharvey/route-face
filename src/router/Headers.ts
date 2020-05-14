@@ -1,5 +1,5 @@
 import * as t from 'io-ts'
-import * as Res from '../Result'
+import * as Res from '../result/Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
 import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
@@ -17,7 +17,7 @@ export const eitherToResult = <A>(
   either: E.Either<t.Errors, A>
 ): Res.Result<ValidationError, A> =>
   E.fold<t.Errors, A, Res.Result<ValidationError, A>>(
-    left =>
+    (left) =>
       Res.failure({
         value: left[0].value,
         expected: left[0].context[0].type.name,
@@ -35,15 +35,15 @@ export const validateHeaders = <Headers extends AnyHeaders>(
     ([key, piece]) => {
       const result = Res.mapError(
         eitherToResult(piece.decode(requestHeaders[key])),
-        e => ({ name: key, value: e })
+        (e) => ({ name: key, value: e })
       )
-      return Res.map(result, a => [key, a] as const)
+      return Res.map(result, (a) => [key, a] as const)
     }
   )
 
   const allSucceeds = Res.all(results)
   if (Res.isSuccess(allSucceeds)) {
-    return Res.map(allSucceeds, as =>
+    return Res.map(allSucceeds, (as) =>
       as.reduce<Headers>(
         (theseHeaders: Headers, [key, value]) => ({
           ...theseHeaders,
@@ -53,7 +53,7 @@ export const validateHeaders = <Headers extends AnyHeaders>(
       )
     ) as Res.Result<HeaderError, FromCodecObject<Headers>>
   }
-  const tidiedErrors = results.map(res =>
+  const tidiedErrors = results.map((res) =>
     Res.map(res, ([name, value]) => ({ name, value }))
   )
   return Res.failure({

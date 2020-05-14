@@ -1,19 +1,19 @@
-import * as R from './Result'
+import * as R from '../result/Result'
 
 type Func1<A, B> = (a: A) => B
 
-// type for a Cont
-// the type: "Cont" is just to help Typescript recognise it
+// type for a Job
+// the type: "Job" is just to help Typescript recognise it
 // the body says "give me a function that wants an A and I'll run it,
 // passing it an A.
 
-export class Cont<Ctx, E, A> {
+export class Job<Ctx, E, A> {
   readonly body!: (
     context: Ctx,
     success: Func1<A, void>,
     failure: Func1<E, void>
   ) => void
-  readonly type!: 'Cont'
+  readonly type!: 'Job'
   constructor(
     readonly value: (
       context: Ctx,
@@ -23,25 +23,25 @@ export class Cont<Ctx, E, A> {
   ) {
     this.body = value
   }
-  map<B>(f: (a: A) => B): Cont<Ctx, E, B> {
+  map<B>(f: (a: A) => B): Job<Ctx, E, B> {
     return map<Ctx, E, A, B>(f, this)
   }
-  catch(g: (e: E) => R.Result<E, A>): Cont<Ctx, E, A> {
+  catch(g: (e: E) => R.Result<E, A>): Job<Ctx, E, A> {
     return catchError<Ctx, E, A>(g, this)
   }
-  bind<CtxB, B>(toContB: (a: A) => Cont<CtxB, E, B>) {
-    return bind<Ctx, CtxB, E, A, B>(this, toContB)
+  bind<CtxB, B>(toJobB: (a: A) => Job<CtxB, E, B>) {
+    return bind<Ctx, CtxB, E, A, B>(this, toJobB)
   }
   list(
-    conts: Cont<Ctx, E, A>[]
-  ): Cont<Ctx, E, R.Result<E, A>[]> {
-    return list(this, ...conts)
+    jobs: Job<Ctx, E, A>[]
+  ): Job<Ctx, E, R.Result<E, A>[]> {
+    return list(this, ...jobs)
   }
-  alt(conts: Cont<Ctx, E, A>[]) {
-    return alt(this, ...conts)
+  alt(jobs: Job<Ctx, E, A>[]) {
+    return alt(this, ...jobs)
   }
-  race(conts: Cont<Ctx, E, A>[]) {
-    return race(this, ...conts)
+  race(jobs: Job<Ctx, E, A>[]) {
+    return race(this, ...jobs)
   }
   delay(delayMs: number) {
     return withDelay(delayMs, this)
@@ -57,124 +57,122 @@ export class Cont<Ctx, E, A> {
 /* CONSTUCTORS */
 
 // constructor function for the above, takes the body function and wraps it up
-export const cont = <Ctx, E, A>(
+export const job = <Ctx, E, A>(
   body: (
     success: Func1<A, void>,
     failure: Func1<E, void>
   ) => void
-): Cont<Ctx, E, A> =>
-  new Cont((_, suc, fail) => body(suc, fail))
+): Job<Ctx, E, A> =>
+  new Job((_, suc, fail) => body(suc, fail))
 
 // constructor function for the above, takes the body function and wraps it up
-export const contRead = <Ctx, E, A>(
+export const jobRead = <Ctx, E, A>(
   body: (
     context: Ctx,
     success: Func1<A, void>,
     failure: Func1<E, void>
   ) => void
-): Cont<Ctx, E, A> => new Cont(body)
+): Job<Ctx, E, A> => new Job(body)
 
-// simplest constructor, give it an A, and it gives you a Cont that will
+// simplest constructor, give it an A, and it gives you a Job that will
 // return that A on request
-export const pure = <Ctx, E, A>(a: A): Cont<Ctx, E, A> =>
-  cont(success => success(a))
+export const pure = <Ctx, E, A>(a: A): Job<Ctx, E, A> =>
+  job((success) => success(a))
 
-export const pureFail = <Ctx, E, A>(
-  e: E
-): Cont<Ctx, E, A> =>
-  cont((_success, failure) => failure(e))
+export const pureFail = <Ctx, E, A>(e: E): Job<Ctx, E, A> =>
+  job((_success, failure) => failure(e))
 
-// take a Promise and turn it into a ContReaderEither
+// take a Promise and turn it into a JobReaderEither
 export const fromPromise = <Ctx, E, A>(
   source: (ctx: Ctx) => Promise<A>,
   catcher: (e: any) => E
-): Cont<Ctx, E, A> =>
-  contRead((ctx, success, failure) =>
+): Job<Ctx, E, A> =>
+  jobRead((ctx, success, failure) =>
     source(ctx)
       .then(success)
-      .catch(e => failure(catcher(e)))
+      .catch((e) => failure(catcher(e)))
   )
 
 //
 export const fromContext = <Ctx, E, A>(
   f: (ctx: Ctx) => R.Result<E, A>
-): Cont<Ctx, E, A> =>
-  contRead((ctx, success, failure) =>
+): Job<Ctx, E, A> =>
+  jobRead((ctx, success, failure) =>
     R.matchResult(failure, success)(f(ctx))
   )
 
-// run the Cont, ie, pass it a Cont with an A inside, and a callback function
+// run the Job, ie, pass it a Job with an A inside, and a callback function
 // that wants that A, and it will pass the A to the callback
 export const run = <Ctx, E, A>(
-  cont: Cont<Ctx, E, A>,
+  job: Job<Ctx, E, A>,
   ctx: Ctx,
   next: (result: R.Result<E, A>) => void
 ): void =>
-  cont.body(
+  job.body(
     ctx,
-    a => next(R.success(a)),
-    e => next(R.failure(e))
+    (a) => next(R.success(a)),
+    (e) => next(R.failure(e))
   )
 
 export const runToPromise = <Ctx, E, A>(
-  cont: Cont<Ctx, E, A>,
+  job: Job<Ctx, E, A>,
   ctx: Ctx
 ): Promise<A> =>
   new Promise((resolve, reject) =>
-    cont.body(ctx, resolve, reject)
+    job.body(ctx, resolve, reject)
   )
 
 export const runToResolvingPromise = <Ctx, E, A>(
-  cont: Cont<Ctx, E, A>,
+  job: Job<Ctx, E, A>,
   ctx: Ctx
 ): Promise<R.Result<E, A>> =>
-  new Promise(resolve =>
-    cont.body(
+  new Promise((resolve) =>
+    job.body(
       ctx,
-      a => resolve(R.success(a)),
-      e => resolve(R.failure(e))
+      (a) => resolve(R.success(a)),
+      (e) => resolve(R.failure(e))
     )
   )
 
 /* METHODS */
 
-// takes a Cont with an A in it, and a function that changes an A to a B, and
-// returns a Cont with a B in it.
+// takes a Job with an A in it, and a function that changes an A to a B, and
+// returns a Job with a B in it.
 export const map = <Ctx, E, A, B>(
   f: (a: A) => B,
-  thisCont: Cont<Ctx, E, A>
-): Cont<Ctx, E, B> =>
+  thisJob: Job<Ctx, E, A>
+): Job<Ctx, E, B> =>
   bimap(
     R.matchResult(
       (e: E) => R.failure(e),
       (a: A) => R.success(f(a))
     ),
-    thisCont
+    thisJob
   )
 
 export const catchError = <Ctx, E, A>(
   g: (e: E) => R.Result<E, A>,
-  cont: Cont<Ctx, E, A>
-): Cont<Ctx, E, A> =>
+  job: Job<Ctx, E, A>
+): Job<Ctx, E, A> =>
   bimap(
     R.matchResult(
-      e => g(e),
-      a => R.success(a)
+      (e) => g(e),
+      (a) => R.success(a)
     ),
-    cont
+    job
   )
 
 export const ap = <Ctx, E, A, B>(
-  contF: Cont<Ctx, E, Func1<A, B>>,
-  contA: Cont<Ctx, E, A>
-): Cont<Ctx, E, B> =>
-  contRead((ctx, success, failure) =>
+  jobF: Job<Ctx, E, Func1<A, B>>,
+  jobA: Job<Ctx, E, A>
+): Job<Ctx, E, B> =>
+  jobRead((ctx, success, failure) =>
     run(
-      contF,
+      jobF,
       ctx,
       R.matchResult(failure, (f: Func1<A, B>) =>
         run(
-          contA,
+          jobA,
           ctx,
           R.matchResult(failure, (a: A) => success(f(a)))
         )
@@ -183,29 +181,25 @@ export const ap = <Ctx, E, A, B>(
   )
 
 export const bind = <Ctx, CtxB, E, A, B>(
-  contA: Cont<Ctx, E, A>,
-  toContB: (a: A) => Cont<CtxB, E, B>
-): Cont<Ctx & CtxB, E, B> =>
-  contRead((ctx, success, failure) =>
+  jobA: Job<Ctx, E, A>,
+  toJobB: (a: A) => Job<CtxB, E, B>
+): Job<Ctx & CtxB, E, B> =>
+  jobRead((ctx, success, failure) =>
     run(
-      contA,
+      jobA,
       ctx,
-      R.matchResult(failure, a =>
-        run(
-          toContB(a),
-          ctx,
-          R.matchResult(failure, success)
-        )
+      R.matchResult(failure, (a) =>
+        run(toJobB(a), ctx, R.matchResult(failure, success))
       )
     )
   )
 
 export const bimap = <Ctx, E, G, A, B>(
   f: (val: R.Result<E, A>) => R.Result<G, B>,
-  contA: Cont<Ctx, E, A>
-): Cont<Ctx, G, B> =>
-  contRead((ctx, success, failure) =>
-    run(contA, ctx, val =>
+  jobA: Job<Ctx, E, A>
+): Job<Ctx, G, B> =>
+  jobRead((ctx, success, failure) =>
+    run(jobA, ctx, (val) =>
       R.matchResult(failure, success)(f(val))
     )
   )
@@ -213,10 +207,10 @@ export const bimap = <Ctx, E, G, A, B>(
 // combinator types
 
 export const race = <Ctx, E, A>(
-  contA: Cont<Ctx, E, A>,
-  ...conts: Cont<Ctx, E, A>[]
-): Cont<Ctx, E, A> =>
-  contRead((ctx, success, failure) => {
+  jobA: Job<Ctx, E, A>,
+  ...jobs: Job<Ctx, E, A>[]
+): Job<Ctx, E, A> =>
+  jobRead((ctx, success, failure) => {
     let hasFinished = false
     const onSuccess = (a: A) => {
       if (!hasFinished) {
@@ -230,53 +224,53 @@ export const race = <Ctx, E, A>(
         failure(e)
       }
     }
-    ;[contA, ...conts].forEach(c =>
+    ;[jobA, ...jobs].forEach((c) =>
       run(c, ctx, R.matchResult(onFailure, onSuccess))
     )
   })
 
 // run them all, return a list of passes or failure
 export const list = <Ctx, E, A>(
-  cont: Cont<Ctx, E, A>,
-  ...conts: Cont<Ctx, E, A>[]
-): Cont<Ctx, E, R.Result<E, A>[]> =>
-  contRead((ctx, success, _) => {
+  job: Job<Ctx, E, A>,
+  ...jobs: Job<Ctx, E, A>[]
+): Job<Ctx, E, R.Result<E, A>[]> =>
+  jobRead((ctx, success, _) => {
     let results: R.Result<E, A>[] = []
     const store = (
       index: number,
       result: R.Result<E, A>
     ) => {
       results[index] = result
-      if (results.length === conts.length + 1) {
+      if (results.length === jobs.length + 1) {
         return success(results)
       }
     }
-    ;[cont, ...conts].forEach((cont, index) =>
-      run(cont, ctx, result => store(index, result))
+    ;[job, ...jobs].forEach((job, index) =>
+      run(job, ctx, (result) => store(index, result))
     )
   })
 
 // run list of alt values
 export const alt = <Ctx, E, A>(
-  cont: Cont<Ctx, E, A>,
-  ...conts: Cont<Ctx, E, A>[]
-): Cont<Ctx, E, A> =>
-  contRead((ctx, success, failure) => {
-    let mutableConts = [...conts]
-    const tryCont = (cont: Cont<Ctx, E, A>) => {
+  job: Job<Ctx, E, A>,
+  ...jobs: Job<Ctx, E, A>[]
+): Job<Ctx, E, A> =>
+  jobRead((ctx, success, failure) => {
+    let mutableJobs = [...jobs]
+    const tryJob = (job: Job<Ctx, E, A>) => {
       run(
-        cont,
+        job,
         ctx,
-        R.matchResult(e => {
-          const nextItem = mutableConts.shift()
+        R.matchResult((e) => {
+          const nextItem = mutableJobs.shift()
           if (!nextItem) {
             return failure(e)
           }
-          return tryCont(nextItem)
+          return tryJob(nextItem)
         }, success)
       )
     }
-    tryCont(cont)
+    tryJob(job)
   })
 
 // const liftA2 = ()
@@ -285,12 +279,11 @@ export const alt = <Ctx, E, A>(
 
 export const withDelay = <Ctx, E, A>(
   delay: number,
-  contA: Cont<Ctx, E, A>
+  jobA: Job<Ctx, E, A>
 ) =>
-  contRead<Ctx, E, A>((ctx, success, failure) =>
+  jobRead<Ctx, E, A>((ctx, success, failure) =>
     setTimeout(
-      () =>
-        run(contA, ctx, R.matchResult(failure, success)),
+      () => run(jobA, ctx, R.matchResult(failure, success)),
       delay
     )
   )
@@ -298,31 +291,31 @@ export const withDelay = <Ctx, E, A>(
 export const withTimeout = <Ctx, E, A>(
   timeout: number,
   error: E,
-  cont: Cont<Ctx, E, A>
-): Cont<Ctx, E, A> =>
-  race(cont, withDelay(timeout, pureFail(error)))
+  job: Job<Ctx, E, A>
+): Job<Ctx, E, A> =>
+  race(job, withDelay(timeout, pureFail(error)))
 
 export const retry = <Ctx, E, A>(
   retries: number,
-  contA: Cont<Ctx, E, A>
-): Cont<Ctx, E, A> =>
+  jobA: Job<Ctx, E, A>
+): Job<Ctx, E, A> =>
   retries < 2
-    ? alt(contA, contA)
+    ? alt(jobA, jobA)
     : range(retries).reduce(
-        command => alt(command, contA),
-        contA
+        (command) => alt(command, jobA),
+        jobA
       )
 
 export const range = (max: number): number[] =>
-  [...Array(Math.max(max, 2)).keys()].map(i => i)
+  [...Array(Math.max(max, 2)).keys()].map((i) => i)
 
 export const retryWithCount = <Ctx, E, A>(
-  makeContA: (attemptCount: number) => Cont<Ctx, E, A>,
+  makeJobA: (attemptCount: number) => Job<Ctx, E, A>,
   retries: number
-): Cont<Ctx, E, A> =>
+): Job<Ctx, E, A> =>
   retries < 2
-    ? makeContA(0)
+    ? makeJobA(0)
     : range(retries).reduce(
-        (command, index) => alt(command, makeContA(index)),
-        makeContA(0)
+        (command, index) => alt(command, makeJobA(index)),
+        makeJobA(0)
       )

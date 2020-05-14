@@ -2,7 +2,7 @@ import * as Koa from 'koa'
 import bodyParser from 'koa-bodyparser'
 
 import * as E from './Endpoint'
-import * as R from './Router'
+import * as R from './router/Router'
 import * as t from 'io-ts'
 import { apiSuccess, apiFailure } from './Response'
 
@@ -72,17 +72,17 @@ const koaContextToRequest = (
 
 app.use(async (ctx: Koa.Context) => {
   const req = koaContextToRequest(ctx)
-  
+
   const success = (response: any) => {
     console.log('success', response)
     ctx.body = response.body || response
     ctx.status = response.status || 200
   }
-  
+
   // the next step will be to provide a less manual way of combining endpoints
   E.runEndpoint(postUser, req)
     .then(success)
-    .catch(_ =>
+    .catch((_) =>
       E.runEndpoint(getUser, req)
         .then(success)
         .catch((e: any) => {

@@ -1,5 +1,5 @@
 import * as V from './Validator'
-import * as Res from './Result'
+import * as Res from '../result/Result'
 import * as fc from 'fast-check'
 
 describe('Validators', () => {
@@ -60,7 +60,7 @@ describe('Validators', () => {
     it('Creates values', () => {
       const arb = V.getArbitrary(V.integerValidator)
       fc.assert(
-        fc.property(arb, a => {
+        fc.property(arb, (a) => {
           expect(Number.isInteger(a)).toBeTruthy()
         })
       )

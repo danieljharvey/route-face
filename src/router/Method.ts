@@ -1,5 +1,5 @@
 import * as t from 'io-ts'
-import * as Res from '../Result'
+import * as Res from '../result/Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
 import {
@@ -35,16 +35,16 @@ export const validateMethod = <PostData extends Piece>(
     return Res.mapError(
       Res.map(
         HTTP.methodGet.validate(methodString),
-        _ => true
+        (_) => true
       ),
-      e => ({ type: 'MethodError', matches: e })
+      (e) => ({ type: 'MethodError', matches: e })
     )
   }
   return Res.mapError(
     Res.map(
       HTTP.methodPost.validate(methodString),
-      _ => true
+      (_) => true
     ),
-    e => ({ type: 'MethodError', matches: e })
+    (e) => ({ type: 'MethodError', matches: e })
   )
 }

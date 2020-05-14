@@ -1,10 +1,10 @@
-import * as R from './Router'
+import * as R from './router/Router'
 import * as HTTP from './domain/Methods'
-import * as Res from './Result'
+import * as Res from './result/Result'
 import * as t from 'io-ts'
 
 const splitUrl = (whole: string): string[] =>
-  whole.split('/').filter(a => a.length > 0)
+  whole.split('/').filter((a) => a.length > 0)
 
 ///////////////////////////////////////////////////
 

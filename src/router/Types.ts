@@ -1,5 +1,5 @@
 import * as t from 'io-ts'
-import * as Res from '../Result'
+import * as Res from '../result/Result'
 
 // convert validators into output values
 export type FromCodec<T> = T extends t.Mixed

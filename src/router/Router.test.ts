@@ -1,6 +1,6 @@
 import * as R from './Router'
 import * as t from 'io-ts'
-import * as Res from './Result'
+import * as Res from '../result/Result'
 // import { getArbitrary } from 'fast-check-io-ts'
 // import fc from 'fast-check'
 import { NumberFromString } from 'io-ts-types/lib/NumberFromString'

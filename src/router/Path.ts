@@ -1,6 +1,6 @@
 import * as t from 'io-ts'
 import { Push, pushTuple } from '../Tuple'
-import * as Res from '../Result'
+import * as Res from '../result/Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
 import {
@@ -24,7 +24,7 @@ export const eitherToResult = <A>(
   either: E.Either<t.Errors, A>
 ): Res.Result<ValidationError, A> =>
   E.fold<t.Errors, A, Res.Result<ValidationError, A>>(
-    left =>
+    (left) =>
       Res.failure({
         value: left[0].value,
         expected: left[0].context[0].type.name,
@@ -51,8 +51,8 @@ export const validatePath = <Pieces extends AnyPieces>(
   }
   return Res.failure({
     type: 'PathError',
-    matches: results.map(result =>
-      Res.map(result, a => String(a))
+    matches: results.map((result) =>
+      Res.map(result, (a) => String(a))
     ),
   })
 }

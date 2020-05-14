@@ -1,5 +1,5 @@
 import * as t from 'io-ts'
-import * as Res from '../Result'
+import * as Res from '../result/Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
 import {
@@ -25,6 +25,6 @@ export const validatePostData = <PostData extends Piece>(
   }
   return Res.mapError(
     eitherToResult(method.validator.decode(postData)),
-    errors => ({ type: 'PostDataError', errors })
+    (errors) => ({ type: 'PostDataError', errors })
   )
 }
