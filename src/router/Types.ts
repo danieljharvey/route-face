@@ -64,14 +64,22 @@ export type Request = {
 
 ///
 
-type RouteError = unknown
+export type APIError<E> = HandlerError<E> | RouteErrors
+
+export type HandlerError<E> = {
+  type: 'HandlerError'
+  value: E
+}
 
 export type RouteErrors = {
+  type: 'RouteErrors'
   method: MethodError | null
   path: PathError | null
   headers: HeaderError | null
   postData: PostDataError | null
 }
+
+///
 
 export type MethodError = {
   type: 'MethodError'

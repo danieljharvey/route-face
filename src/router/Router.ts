@@ -22,6 +22,9 @@ export {
   FromCodecObject,
   RouteOutput,
   ValidationError,
+  RouteErrors,
+  HandlerError,
+  APIError,
 } from './Types'
 import {
   add,
@@ -120,7 +123,7 @@ const modifyRouteMethod = <
 })
 
 const splitUrl = (whole: string): string[] =>
-  whole.split('/').filter((a) => a.length > 0)
+  whole.split('/').filter(a => a.length > 0)
 
 // excuse the inelegance, cba to make a nicer chaining thing right now
 export const validateRequestWithRoute = <
@@ -161,10 +164,11 @@ export const validateRequestWithRoute = <
     return Res.success({
       path: path.value,
       headers: headers.value,
-      postData: method.value,
+      postData: postData.value,
     })
   }
   return Res.failure({
+    type: 'RouteErrors',
     method: failureOrNull(method),
     path: failureOrNull(path),
     headers: failureOrNull(headers),
@@ -175,8 +179,8 @@ export const validateRequestWithRoute = <
 const failureOrNull: <E, A>(
   result: Res.Result<E, A>
 ) => E | null = Res.matchResult(
-  (e) => e,
-  (_) => null
+  e => e,
+  _ => null
 )
 
 ///
@@ -219,12 +223,10 @@ export const extendRoute = <
       modifyRouteHeaders(route, numberHeader(headerName))
     ),
   get: () =>
-    extendRoute(
-      modifyRouteMethod(route, (_) => getMethod())
-    ),
+    extendRoute(modifyRouteMethod(route, _ => getMethod())),
   post: <PostDataB extends Piece>(validator: PostDataB) =>
     extendRoute(
-      modifyRouteMethod(route, (_) => postMethod(validator))
+      modifyRouteMethod(route, _ => postMethod(validator))
     ),
 
   done: () => route,

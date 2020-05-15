@@ -4,7 +4,7 @@ import bodyParser from 'koa-bodyparser'
 import * as E from './Endpoint'
 import * as R from './router/Router'
 import * as t from 'io-ts'
-import { apiSuccess, apiFailure } from './Response'
+import * as J from './job/job'
 
 // validator for data in our POST request
 const userValidator = t.type({
@@ -20,7 +20,7 @@ type User = t.TypeOf<typeof userValidator>
 let userStore: User[] = []
 
 // get user from store if available
-const getUser = E.endpoint(
+const getUser = E.fromRoute(
   R.makeRoute()
     .path('users')
     .number()
@@ -28,33 +28,33 @@ const getUser = E.endpoint(
     .get()
     .stringHeader('authtoken')
     .done(),
-  ({ path: [_, userId], headers: { authtoken } }) => {
-    if (authtoken !== 'secretpassword') {
-      return Promise.resolve(apiFailure('auth failure'))
-    }
-    const user = userStore[userId]
-    return Promise.resolve(
+  ({ path: [_, userId], headers: { authtoken } }) =>
+    J.makeJob((success, failure) => {
+      if (authtoken !== 'secretpassword') {
+        return failure('auth failure')
+      }
+      const user = userStore[userId]
       user
-        ? apiSuccess(user)
-        : apiFailure(`User ${userId} not found!`)
-    )
-  }
+        ? success(user)
+        : failure(`User ${userId} not found!`)
+    })
 )
 
 // save a user in the store
-const postUser = E.endpoint(
+const postUser = E.fromRoute(
   R.makeRoute()
     .path('users')
     .stringHeader('authtoken')
     .post(userValidator)
     .done(),
-  ({ headers: { authtoken }, postData: user }) => {
-    if (authtoken !== 'secretpassword') {
-      return Promise.resolve(apiFailure('auth failure'))
-    }
-    userStore[user.id] = user
-    return Promise.resolve(apiSuccess('ok!'))
-  }
+  ({ headers: { authtoken }, postData: user }) =>
+    J.makeJob((success, failure) => {
+      if (authtoken !== 'secretpassword') {
+        return failure('auth failure')
+      }
+      userStore[user.id] = user
+      return success('ok!')
+    })
 )
 
 const app = new Koa.default()
@@ -80,10 +80,10 @@ app.use(async (ctx: Koa.Context) => {
   }
 
   // the next step will be to provide a less manual way of combining endpoints
-  E.runEndpoint(postUser, req)
+  J.runToPromise(postUser(req))
     .then(success)
-    .catch((_) =>
-      E.runEndpoint(getUser, req)
+    .catch(_ =>
+      J.runToPromise(getUser(req))
         .then(success)
         .catch((e: any) => {
           console.log(e)

@@ -123,6 +123,34 @@ describe('Job', () => {
       )
     })
   })
+
+  describe('altCollect', () => {
+    it('Falls through the first failure and returns the success', done => {
+      J.run(
+        J.altCollect(J.pureFail('Oh no'), J.pure('yeah')),
+        a => {
+          expect(a).toEqual(Res.success('yeah'))
+          done()
+        }
+      )
+    })
+    it('Returns all errors if nothing succeeds', done => {
+      J.run(
+        J.altCollect(
+          J.pureFail('Oh no'),
+          J.pureFail('its'),
+          J.pureFail('broken')
+        ),
+        a => {
+          expect(a).toEqual(
+            Res.failure(['Oh no', 'its', 'broken'])
+          )
+          done()
+        }
+      )
+    })
+  })
+
   describe('bimap', () => {
     it('Runs left function', done => {
       J.run(

@@ -20,8 +20,15 @@ export class Job<E, A> {
   map<B>(f: (a: A) => B): Job<E, B> {
     return map<E, A, B>(f, this)
   }
-  catch(g: (e: E) => R.Result<E, A>): Job<E, A> {
-    return catchError<E, A>(g, this)
+
+  bimap<B, G>(
+    f: (val: R.Result<E, A>) => R.Result<G, B>
+  ): Job<G, B> {
+    return bimap(f, this)
+  }
+
+  catch<G>(g: (e: E) => R.Result<G, A>): Job<G, A> {
+    return catchError<E, A, G>(g, this)
   }
   bind<B>(toJobB: (a: A) => Job<E, B>) {
     return bind<E, A, B>(this, toJobB)
@@ -133,10 +140,10 @@ export const map = <E, A, B>(
   )
 
 // if the passed Job is an error, run this function over the error
-export const catchError = <E, A>(
-  g: (e: E) => R.Result<E, A>,
+export const catchError = <E, A, G>(
+  g: (e: E) => R.Result<G, A>,
   job: Job<E, A>
-): Job<E, A> =>
+): Job<G, A> =>
   bimap(
     R.matchResult(
       e => g(e),
@@ -254,6 +261,30 @@ export const alt = <E, A>(
           const nextItem = mutableJobs.shift()
           if (!nextItem) {
             return failure(e)
+          }
+          return tryJob(nextItem)
+        }, success)
+      )
+
+    tryJob(job)
+  })
+
+// try each Job in the list, returning the first that succeeds
+export const altCollect = <E, A>(
+  job: Job<E, A>,
+  ...jobs: Job<E, A>[]
+): Job<E[], A> =>
+  makeJob((success, failure) => {
+    let mutableJobs = [...jobs]
+    let errors: E[] = []
+    const tryJob = (job: Job<E, A>): void =>
+      run(
+        job,
+        R.matchResult(e => {
+          const nextItem = mutableJobs.shift()
+          errors = [...errors, e]
+          if (!nextItem) {
+            return failure(errors)
           }
           return tryJob(nextItem)
         }, success)

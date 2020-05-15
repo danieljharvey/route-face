@@ -1,5 +1,7 @@
+import * as J from './job/job'
 import * as E from './Endpoint'
 import * as R from './router/Router'
+import * as Res from './result/Result'
 import * as t from 'io-ts'
 
 describe('Endpoint', () => {
@@ -12,26 +14,24 @@ describe('Endpoint', () => {
       .stringHeader('secret-token')
       .done()
 
-    const getSample = E.endpoint(
-      getRoute,
-      ({ headers }) => {
-        if (
-          headers['secret-token'] === 'costanza' ||
+    const getSample = E.fromRoute(getRoute, ({ headers }) =>
+      J.fromResult(
+        headers['secret-token'] === 'costanza' ||
           headers['secret-token'] === 'elaine'
-        ) {
-          return Promise.resolve('good')
-        }
-        return Promise.reject('bad')
-      }
+          ? Res.success('good')
+          : Res.failure('bad')
+      )
     )
 
-    it('Runs a get endpoint and totally nails the password', (done) => {
-      E.runEndpoint(getSample, {
-        method: 'get',
-        headers: { 'secret-token': 'costanza' },
-        url: '/posts/100/view/',
-        postData: {},
-      }).then((a) => {
+    it('Runs a get endpoint and totally nails the password', done => {
+      J.runToPromise(
+        getSample({
+          method: 'get',
+          headers: { 'secret-token': 'costanza' },
+          url: '/posts/100/view/',
+          postData: {},
+        })
+      ).then(a => {
         expect(a).toEqual('good')
         done()
       })
@@ -53,26 +53,26 @@ describe('Endpoint', () => {
       .post(samplePostData)
       .done()
 
-    const postSample = E.endpoint(
+    const postSample = E.fromRoute(
       postRoute,
-      ({ headers }) => {
-        if (
+      ({ headers }) =>
+        J.fromResult(
           headers['secret-token'] === 'costanza' ||
-          headers['secret-token'] === 'elaine'
-        ) {
-          return Promise.resolve('good')
-        }
-        return Promise.reject('bad')
-      }
+            headers['secret-token'] === 'elaine'
+            ? Res.success('good')
+            : Res.failure('bad')
+        )
     )
 
-    it('Runs a post endpoint and totally nails the password', (done) => {
-      E.runEndpoint(postSample, {
-        method: 'post',
-        headers: { 'secret-token': 'costanza' },
-        url: '/posts/100/view/',
-        postData: { name: 'kramer', age: 200 },
-      }).then((a) => {
+    it('Runs a post endpoint and totally nails the password', done => {
+      J.runToPromise(
+        postSample({
+          method: 'post',
+          headers: { 'secret-token': 'costanza' },
+          url: '/posts/100/view/',
+          postData: { name: 'kramer', age: 200 },
+        })
+      ).then(a => {
         expect(a).toEqual('good')
         done()
       })
