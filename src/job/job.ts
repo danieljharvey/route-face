@@ -1,11 +1,8 @@
 import * as R from '../result/Result'
 
 type Func1<A, B> = (a: A) => B
-
-// type for a Job
-// the type: "Job" is just to help Typescript recognise it
-// the body says "give me a function that wants an A and I'll run it,
-// passing it an A.
+type Func2<A, B, C> = (a: A, b: B) => C
+type Func3<A, B, C, D> = (a: A, b: B, c: C) => D
 
 export class Job<E, A> {
   readonly body!: (
@@ -64,10 +61,21 @@ export const makeJob = <E, A>(
 export const pure = <E, A>(a: A): Job<E, A> =>
   makeJob(success => success(a))
 
+// give it an error E, and it will give you a failing Job
 export const pureFail = <E, A>(e: E): Job<E, A> =>
   makeJob((_success, failure) => failure(e))
 
-// take a Promise and turn it into a JobReaderEither
+// give me a Result that is either E or A, and this will turn that into a Job
+export const fromResult = <E, A>(
+  res: R.Result<E, A>
+): Job<E, A> =>
+  R.matchResult(
+    (e: E) => pureFail<E, A>(e),
+    (a: A) => pure<E, A>(a)
+  )(res)
+
+// take a Promise and turn it into a Job
+// the catcher makes sure any error thrown is turned into an E
 export const fromPromise = <E, A>(
   source: () => Promise<A>,
   catcher: (e: any) => E
@@ -78,8 +86,7 @@ export const fromPromise = <E, A>(
       .catch(e => failure(catcher(e)))
   )
 
-// run the Job, ie, pass it a Job with an A inside, and a callback function
-// that wants that A, and it will pass the A to the callback
+// run the Job and pass the result to the callback function
 export const run = <E, A>(
   job: Job<E, A>,
   next: (result: R.Result<E, A>) => void
@@ -89,6 +96,7 @@ export const run = <E, A>(
     e => next(R.failure(e))
   )
 
+// run the job and return the result in a Promise that may resolve or reject
 export const runToPromise = <E, A>(
   job: Job<E, A>
 ): Promise<A> =>
@@ -96,6 +104,8 @@ export const runToPromise = <E, A>(
     job.body(resolve, reject)
   )
 
+// run the job, resolving with a Result<E,A> rather than rejecting
+// this is useful in async/await code to avoid wrapping in try/catch
 export const runToResolvingPromise = <E, A>(
   job: Job<E, A>
 ): Promise<R.Result<E, A>> =>
@@ -122,6 +132,7 @@ export const map = <E, A, B>(
     thisJob
   )
 
+// if the passed Job is an error, run this function over the error
 export const catchError = <E, A>(
   g: (e: E) => R.Result<E, A>,
   job: Job<E, A>
@@ -134,6 +145,9 @@ export const catchError = <E, A>(
     job
   )
 
+// if JobF contains a function from A -> B
+// and jobA contains an A
+// return a Job with a B in it
 export const ap = <E, A, B>(
   jobF: Job<E, Func1<A, B>>,
   jobA: Job<E, A>
@@ -150,6 +164,11 @@ export const ap = <E, A, B>(
     )
   )
 
+// also called chain or flatMap
+// given a Job that returns an A
+// and a function that takes that A
+// and returns another Job that returns a B
+// chain them together
 export const bind = <E, A, B>(
   jobA: Job<E, A>,
   toJobB: (a: A) => Job<E, B>
@@ -163,6 +182,7 @@ export const bind = <E, A, B>(
     )
   )
 
+// As a Job has a Result inside, this let's you run a function over that Result
 export const bimap = <E, G, A, B>(
   f: (val: R.Result<E, A>) => R.Result<G, B>,
   jobA: Job<E, A>
@@ -173,8 +193,9 @@ export const bimap = <E, G, A, B>(
     )
   )
 
-// combinator types
+// Combinators
 
+// run all the jobs and return the first one that finishes
 export const race = <E, A>(
   jobA: Job<E, A>,
   ...jobs: Job<E, A>[]
@@ -198,7 +219,7 @@ export const race = <E, A>(
     )
   })
 
-// run them all, return a list of passes or failure
+// run all the jobs, keeping all the results
 export const list = <E, A>(
   job: Job<E, A>,
   ...jobs: Job<E, A>[]
@@ -219,7 +240,7 @@ export const list = <E, A>(
     )
   })
 
-// run list of alt values
+// try each Job in the list, returning the first that succeeds
 export const alt = <E, A>(
   job: Job<E, A>,
   ...jobs: Job<E, A>[]
@@ -241,10 +262,38 @@ export const alt = <E, A>(
     tryJob(job)
   })
 
-// const liftA2 = ()
+// helper
+const curry2 = <A, B, C>(f: Func2<A, B, C>) => (a: A) => (
+  b: B
+) => f(a, b)
 
-// modifiers
+// take a function of (a:A, b:B) => C
+// and Job<E,A> and Job<E,B>
+// turns into Job<E,C>
+export const liftA2 = <E, A, B, C>(
+  f: Func2<A, B, C>,
+  jobA: Job<E, A>,
+  jobB: Job<E, B>
+): Job<E, C> => ap(jobA.map(curry2(f)), jobB)
 
+// helper
+const curry3 = <A, B, C, D>(f: Func3<A, B, C, D>) => (
+  a: A
+) => (b: B) => (c: C) => f(a, b, c)
+
+// take a function of (a:A,b:B,c:C) => D
+// and Job<E,A> and Job<E,B> and Job<E,C>
+// and turns into Job<E,D>
+export const liftA3 = <E, A, B, C, D>(
+  f: Func3<A, B, C, D>,
+  jobA: Job<E, A>,
+  jobB: Job<E, B>,
+  jobC: Job<E, C>
+): Job<E, D> => ap(ap(jobA.map(curry3(f)), jobB), jobC)
+
+// Modifiers
+
+// Delays the execution of the Job by a number of ms
 export const withDelay = <E, A>(
   delay: number,
   jobA: Job<E, A>
@@ -256,6 +305,8 @@ export const withDelay = <E, A>(
     )
   )
 
+// Runs the job, but returns the provided error if it does
+// not finish in time
 export const withTimeout = <E, A>(
   timeout: number,
   error: E,
@@ -263,6 +314,7 @@ export const withTimeout = <E, A>(
 ): Job<E, A> =>
   race(job, withDelay(timeout, pureFail(error)))
 
+// retry the job X times
 export const retry = <E, A>(
   retries: number,
   jobA: Job<E, A>
@@ -274,9 +326,13 @@ export const retry = <E, A>(
         jobA
       )
 
-export const range = (max: number): number[] =>
+// helper
+const range = (max: number): number[] =>
   [...Array(Math.max(max, 2)).keys()].map(i => i)
 
+// given a function that turns a number into a Job
+// retry it X times
+// the number can be used for exponential backoff etc
 export const retryWithCount = <E, A>(
   makeJobA: (attemptCount: number) => Job<E, A>,
   retries: number
@@ -287,3 +343,36 @@ export const retryWithCount = <E, A>(
         (command, index) => alt(command, makeJobA(index)),
         makeJobA(0)
       )
+
+const filterMap = <K, A>(
+  map: Map<K, [number, A]>,
+  cacheLimit: number
+): Map<K, [number, A]> =>
+  new Map(
+    Array.from(map).filter(([_, [age]]) => age > cacheLimit)
+  )
+
+export const withFifoCache = <E, A, K>(
+  jobFromKey: (key: K) => Job<E, A>,
+  cacheLimit = 100
+): ((k: K) => Job<E, A>) => {
+  let entryNum = 0
+  let cache: Map<K, [number, A]> = new Map()
+  const addToCache = (k: K, a: A) => {
+    entryNum = entryNum + 1
+    cache = filterMap(
+      cache.set(k, [entryNum, a]),
+      entryNum - cacheLimit
+    )
+  }
+  return (k: K) => {
+    const cacheHit = cache.get(k)
+    if (cacheHit) {
+      return pure(cacheHit[1])
+    }
+    return jobFromKey(k).bind(a => {
+      addToCache(k, a)
+      return pure(a)
+    })
+  }
+}

@@ -1,7 +1,7 @@
 import * as J from './job'
 import * as Res from '../result/Result'
 
-describe('JobReaderEither', () => {
+describe('Job', () => {
   describe('pure', () => {
     it('Returns the value inside', done => {
       J.run(J.pure('dog'), a => {
@@ -46,6 +46,56 @@ describe('JobReaderEither', () => {
           expect(a).toEqual(Res.success('DOGGY'))
           done()
         }
+      )
+    })
+  })
+
+  describe('liftA2', () => {
+    const myFunc = (name: string, age: number): string =>
+      `Hello ${name} who is ${age} years old`
+
+    it('Succeeds', async () => {
+      const result = await J.runToResolvingPromise(
+        J.liftA2(myFunc, J.pure('Bruce'), J.pure(100))
+      )
+      expect(result.value).toEqual(
+        `Hello Bruce who is 100 years old`
+      )
+    })
+
+    it('Returns the first failure', async () => {
+      const result = await J.runToResolvingPromise(
+        J.liftA2(
+          myFunc,
+          J.pureFail('oh no'),
+          J.pureFail('not again')
+        )
+      )
+      expect(result.value).toEqual('oh no')
+    })
+  })
+
+  describe('liftA3', () => {
+    const myFunc = (
+      name: string,
+      age: number,
+      likesDogs: boolean
+    ): string =>
+      `Hello ${name} who is ${age} years old and ${
+        likesDogs ? 'does' : 'does not'
+      } like dogs`
+
+    it('Succeeds', async () => {
+      const result = await J.runToResolvingPromise(
+        J.liftA3(
+          myFunc,
+          J.pure('Bruce'),
+          J.pure(100),
+          J.pure(true)
+        )
+      )
+      expect(result.value).toEqual(
+        `Hello Bruce who is 100 years old and does like dogs`
       )
     })
   })
@@ -157,6 +207,72 @@ describe('JobReaderEither', () => {
           done()
         }
       )
+    })
+  })
+
+  const range = (max: number): number[] =>
+    [...Array(Math.max(max, 2)).keys()].map(i => i)
+
+  function shuffleArray<A>(array: A[]): A[] {
+    const newArray = [...array]
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[newArray[i], newArray[j]] = [
+        newArray[j],
+        newArray[i],
+      ]
+    }
+    return newArray
+  }
+
+  describe('withFifoCache', () => {
+    it('Fetches once, uses cache after', async () => {
+      let fetchCount = 0
+      const effectfulThing = (k: number) =>
+        J.makeJob(success => {
+          fetchCount = fetchCount + 1
+          success(`Hello, ${k}`)
+        })
+      const job = J.withFifoCache(effectfulThing, 10)
+
+      const result1 = await J.runToResolvingPromise(job(1))
+      const result2 = await J.runToResolvingPromise(job(1))
+      await J.runToResolvingPromise(job(1))
+
+      expect(result1).toEqual(result2)
+      expect(fetchCount).toEqual(1)
+    })
+    it('Hits cache when available', async () => {
+      let fetchCount = 0
+      const effectfulThing = (k: number) =>
+        J.makeJob(success => {
+          fetchCount = fetchCount + 1
+          success(`Hello, ${k}`)
+        })
+      const job = J.withFifoCache(effectfulThing, 100)
+      const all = range(20)
+        .concat(range(20))
+        .concat(range(20))
+      all.map(
+        async a => await J.runToResolvingPromise(job(a))
+      )
+      expect(fetchCount).toEqual(20)
+    })
+
+    it('Throws old items out of the cache', async () => {
+      let fetchCount = 0
+      const effectfulThing = (k: number) =>
+        J.makeJob<string, string>(success => {
+          fetchCount = fetchCount + 1
+          success(`Hello, ${k}`)
+        })
+      const job = J.withFifoCache(effectfulThing, 5)
+      const all = shuffleArray(range(10).concat(range(10)))
+      all.map(
+        async a => await J.runToResolvingPromise(job(a))
+      )
+      expect(fetchCount).toBeGreaterThanOrEqual(10)
+      expect(fetchCount).toBeLessThanOrEqual(20)
     })
   })
 })

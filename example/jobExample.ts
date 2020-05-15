@@ -12,10 +12,7 @@ import * as Res from '../src/result/Result'
 // we'll worry about the A first, and come back to the others
 // let's make our first Job
 
-const myFirstJob: J.Job<
-  unknown,
-  string
-> = J.makeJob(success => success('Hello!'))
+const myFirstJob = J.makeJob(success => success('Hello!'))
 
 // what happens though?
 // nothing!
