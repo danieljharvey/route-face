@@ -10,12 +10,20 @@ export const mostRelevantRouteError = <A, B>(
   err1: RouteErrors,
   err2: RouteErrors
 ): RouteErrors => {
+  if (err2.method === null && err1.method !== null) {
+    return err2
+  }
+  if (err1.method === null && err2.method !== null) {
+    return err1
+  }
+
   if (err2.path === null) {
     return err2
   }
   if (err1.path === null) {
     return err1
   }
+
   if (countPathMatches(err2) > countPathMatches(err1)) {
     return err2
   }

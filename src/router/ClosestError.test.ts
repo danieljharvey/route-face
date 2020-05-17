@@ -70,6 +70,24 @@ describe('mostRelevantRouteError', () => {
       mostRelevantRouteError(moreMatches, lessMatches)
     ).toEqual(moreMatches)
   })
+  it('A method error is less important', () => {
+    const methodError: RouteErrors = {
+      ...routeError,
+      method: {
+        type: 'MethodError',
+        matches: {
+          expected: 'post',
+          value: 'GET',
+        },
+      },
+    }
+    expect(
+      mostRelevantRouteError(methodError, routeError)
+    ).toEqual(routeError)
+    expect(
+      mostRelevantRouteError(routeError, methodError)
+    ).toEqual(routeError)
+  })
 })
 
 describe('mostRelevantFromList', () => {
