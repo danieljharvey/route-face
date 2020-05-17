@@ -62,14 +62,33 @@ export type Request = {
   postData: object
 }
 
+// this type needs serious work
+export type Response = {
+  status: number
+  body: object
+}
+
 ///
 
-export type APIError<E> = HandlerError<E> | RouteErrors
+export type APIError<E> =
+  | HandlerError<E>
+  | RouteErrors
+  | MultipleMatchesError
+
+///
 
 export type HandlerError<E> = {
   type: 'HandlerError'
   value: E
 }
+
+///
+
+export type MultipleMatchesError = {
+  type: 'MultipleMatchesError'
+}
+
+///
 
 export type RouteErrors = {
   type: 'RouteErrors'

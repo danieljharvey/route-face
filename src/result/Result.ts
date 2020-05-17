@@ -59,7 +59,8 @@ export const matchResult = <E, A, B>(
     ? onFailure(value.value)
     : onSuccess(value.value)
 
-export const flatten = matchResult(id, id)
+export const flatten = <A>(result: Result<A, A>) =>
+  matchResult<A, A, A>(id, id)(result)
 
 // takes list of eithers, returns A[] if all successes or E if not
 export const all = <E, A>(
@@ -89,3 +90,15 @@ export const first = <E, A>(
     }
     return current
   }, result)
+
+export const split = <E, A>(
+  results: Result<E, A>[]
+): [E[], A[]] => {
+  const failures = results
+    .filter(isFailure)
+    .map(a => a.value)
+  const successes = results
+    .filter(isSuccess)
+    .map(a => a.value)
+  return [failures, successes]
+}

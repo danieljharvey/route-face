@@ -5,6 +5,7 @@ import * as E from './Endpoint'
 import * as R from './router/Router'
 import * as t from 'io-ts'
 import * as J from './job/job'
+import * as Res from './result/Result'
 
 // validator for data in our POST request
 const userValidator = t.type({
@@ -19,8 +20,10 @@ type User = t.TypeOf<typeof userValidator>
 // very 1x data store
 let userStore: User[] = []
 
+type APIReturn = User | string
+
 // get user from store if available
-const getUser = E.fromRoute(
+const getUser = E.makeEndpoint(
   R.makeRoute()
     .path('users')
     .number()
@@ -29,7 +32,7 @@ const getUser = E.fromRoute(
     .stringHeader('authtoken')
     .done(),
   ({ path: [_, userId], headers: { authtoken } }) =>
-    J.makeJob((success, failure) => {
+    J.makeJob<string, APIReturn>((success, failure) => {
       if (authtoken !== 'secretpassword') {
         return failure('auth failure')
       }
@@ -41,14 +44,14 @@ const getUser = E.fromRoute(
 )
 
 // save a user in the store
-const postUser = E.fromRoute(
+const postUser = E.makeEndpoint(
   R.makeRoute()
     .path('users')
     .stringHeader('authtoken')
     .post(userValidator)
     .done(),
   ({ headers: { authtoken }, postData: user }) =>
-    J.makeJob((success, failure) => {
+    J.makeJob<string, APIReturn>((success, failure) => {
       if (authtoken !== 'secretpassword') {
         return failure('auth failure')
       }
@@ -56,9 +59,6 @@ const postUser = E.fromRoute(
       return success('ok!')
     })
 )
-
-const app = new Koa.default()
-app.use(bodyParser())
 
 // grab the stuff from the Koa context that we need
 const koaContextToRequest = (
@@ -70,28 +70,30 @@ const koaContextToRequest = (
   postData: ctx.request.body,
 })
 
+const api = E.makeAPI<string, APIReturn>(
+  [getUser, postUser],
+  e => ({
+    status: 400,
+    body: e as object,
+  }),
+  a => ({
+    status: 200,
+    body: a as object,
+  })
+)
+
+const app = new Koa.default()
+app.use(bodyParser())
+
 app.use(async (ctx: Koa.Context) => {
   const req = koaContextToRequest(ctx)
 
-  const success = (response: any) => {
-    console.log('success', response)
-    ctx.body = response.body || response
-    ctx.status = response.status || 200
-  }
+  const result = Res.flatten(
+    await J.runToResolvingPromise(E.runAPI(api, req))
+  )
 
-  // the next step will be to provide a less manual way of combining endpoints
-  J.runToPromise(postUser(req))
-    .then(success)
-    .catch(_ =>
-      J.runToPromise(getUser(req))
-        .then(success)
-        .catch((e: any) => {
-          console.log(e)
-          ctx.body = e.toString()
-          ctx.status = 400
-          return
-        })
-    )
+  ctx.body = result.body
+  ctx.status = result.status
 })
 
 app.listen(3000)

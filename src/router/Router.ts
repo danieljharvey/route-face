@@ -18,6 +18,7 @@ export {
   RouteTypes,
   Route,
   Request,
+  Response,
   FromCodecTuple,
   FromCodecObject,
   RouteOutput,
