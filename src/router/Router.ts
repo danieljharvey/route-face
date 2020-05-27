@@ -170,19 +170,20 @@ export const validateRequestWithRoute = <
   }
   return Res.failure({
     type: 'RouteErrors',
-    method: failureOrNull(method),
-    path: failureOrNull(path),
-    headers: failureOrNull(headers),
-    postData: failureOrNull(postData),
+    method: failureOrMatch(method),
+    path: failureOrMatch(path),
+    headers: failureOrMatch(headers),
+    postData: failureOrMatch(postData),
   })
 }
 
-const failureOrNull: <E, A>(
-  result: Res.Result<E, A>
-) => E | null = Res.matchResult(
-  e => e,
-  _ => null
-)
+const failureOrMatch = <Err, A>(
+  result: Res.Result<Err, A>
+): Err | 'match' =>
+  Res.matchResult<Err, A, Err | 'match'>(
+    e => e,
+    _ => 'match'
+  )(result)
 
 ///
 

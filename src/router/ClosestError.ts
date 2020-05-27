@@ -2,25 +2,28 @@ import { APIError, RouteErrors } from './Types'
 import * as Res from '../result/Result'
 
 const countPathMatches = (errors: RouteErrors): number =>
-  errors.path === null
+  errors.path === 'match'
     ? 0
     : errors.path.matches.filter(Res.isSuccess).length
+
+const isMatch = <A>(a: A | 'match'): a is 'match' =>
+  a === 'match'
 
 export const mostRelevantRouteError = <A, B>(
   err1: RouteErrors,
   err2: RouteErrors
 ): RouteErrors => {
-  if (err2.method === null && err1.method !== null) {
+  if (isMatch(err2.method) && !isMatch(err1.method)) {
     return err2
   }
-  if (err1.method === null && err2.method !== null) {
+  if (isMatch(err1.method) && !isMatch(err2.method)) {
     return err1
   }
 
-  if (err2.path === null) {
+  if (isMatch(err2.path)) {
     return err2
   }
-  if (err1.path === null) {
+  if (isMatch(err1.path)) {
     return err1
   }
 

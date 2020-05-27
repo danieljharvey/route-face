@@ -12,10 +12,10 @@ import * as Res from '../result/Result'
 
 const routeError: RouteErrors = {
   type: 'RouteErrors',
-  method: null,
-  path: null,
-  headers: null,
-  postData: null,
+  method: 'match',
+  path: 'match',
+  headers: 'match',
+  postData: 'match',
 }
 
 describe('mostRelevantRouteError', () => {

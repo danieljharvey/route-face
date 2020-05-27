@@ -86,7 +86,7 @@ describe('validateRequestWithRoute', () => {
 
     if (Res.isFailure(result)) {
       const pathMatches =
-        (result.value.path !== null &&
+        (result.value.path !== 'match' &&
           result.value.path.matches) ||
         []
       expect(Res.isSuccess(pathMatches[0])).toBeTruthy()
@@ -148,7 +148,7 @@ describe('validateRequestWithRoute', () => {
     expect(Res.isFailure(result)).toBeTruthy()
     if (Res.isFailure(result)) {
       const matches =
-        (result.value.headers &&
+        (result.value.headers !== 'match' &&
           result.value.headers.matches) ||
         []
       expect(matches[0]).toEqual(
@@ -174,7 +174,7 @@ describe('validateRequestWithRoute', () => {
       postData: { blah: 'blah' },
     })
     expect(Res.isFailure(result)).toBeTruthy()
-    expect(result.value.postData).toBeNull()
+    expect(result.value.postData).toEqual('match')
   })
 
   it('Returns list of validation errors for postData with a Post request', () => {
@@ -190,7 +190,7 @@ describe('validateRequestWithRoute', () => {
     expect(Res.isFailure(result)).toBeTruthy()
     if (Res.isFailure(result)) {
       const errors =
-        (result.value.postData !== null &&
+        (result.value.postData !== 'match' &&
           result.value.postData.errors) ||
         []
       expect(errors).toHaveLength(1)

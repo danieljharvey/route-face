@@ -92,10 +92,10 @@ export type MultipleMatchesError = {
 
 export type RouteErrors = {
   type: 'RouteErrors'
-  method: MethodError | null
-  path: PathError | null
-  headers: HeaderError | null
-  postData: PostDataError | null
+  method: MethodError | 'match'
+  path: PathError | 'match'
+  headers: HeaderError | 'match'
+  postData: PostDataError | 'match'
 }
 
 ///
