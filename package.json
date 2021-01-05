@@ -7,7 +7,7 @@
     "@types/jest": "^25.2.1",
     "@types/koa": "^2.11.3",
     "@types/koa-bodyparser": "^4.3.0",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "fast-check": "^1.24.2",
     "fast-check-io-ts": "^0.4.0",
     "fp-ts": "^2.5.4",
