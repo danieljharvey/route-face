@@ -1,8 +1,9 @@
 import * as R from './router/Router'
 import * as t from 'io-ts'
-import * as J from './job/job'
-import * as Res from './result/Result'
+import * as TE from 'fp-ts/TaskEither'
 import { mostRelevantFromList } from './router/ClosestError'
+import { pipe } from 'fp-ts/function'
+import * as E from 'fp-ts/Either'
 
 ///////////////////////////////////////////////////
 
@@ -16,14 +17,15 @@ export const fromRoute = <
   route: R.Route<Pieces, Headers, PostData>,
   handler: (
     data: R.RouteOutput<Pieces, Headers, PostData>
-  ) => J.Job<E, A>
-) => (request: R.Request): J.Job<R.APIError<E>, A> =>
-  J.fromResult<
-    R.APIError<E>,
-    R.RouteOutput<Pieces, Headers, PostData>
-  >(R.validateRequestWithRoute(route, request)).bind(a =>
-    handler(a).catch((e: E) =>
-      Res.failure({
+  ) => TE.TaskEither<E, A>
+) => (
+  request: R.Request
+): TE.TaskEither<R.APIError<E>, A> =>
+  pipe(
+    R.validateRequestWithRoute(route, request),
+    TE.chain(a => handler(a)),
+    TE.orElse((e: E) =>
+      TE.left({
         type: 'HandlerError',
         value: e,
       })
@@ -41,7 +43,7 @@ export type Endpoint<
   route: R.Route<Pieces, Headers, PostData>
   handler: (
     data: R.RouteOutput<Pieces, Headers, PostData>
-  ) => J.Job<E, A>
+  ) => TE.TaskEither<E, A>
 }
 
 export type AnyEndpoint<E, A> = Endpoint<
@@ -62,7 +64,7 @@ export const makeEndpoint = <
   route: R.Route<Pieces, Headers, PostData>,
   handler: (
     data: R.RouteOutput<Pieces, Headers, PostData>
-  ) => J.Job<E, A>
+  ) => TE.TaskEither<E, A>
 ): Endpoint<Pieces, Headers, PostData, E, A> => ({
   type: 'Endpoint',
   route,
@@ -98,7 +100,7 @@ export const makeAPI = <E, A>(
 const getValidRoutes = <E, A>(
   api: API<E, A>,
   request: R.Request
-): Res.Result<R.RouteErrors[], AnyEndpoint<E, A>[]> => {
+): E.Either<R.RouteErrors[], AnyEndpoint<E, A>[]> => {
   const [failures, successes] = Res.split(
     api.endpoints.map(endpoint =>
       Res.map(

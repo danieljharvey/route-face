@@ -1,5 +1,4 @@
 import * as t from 'io-ts'
-import * as Res from '../result/Result'
 import * as E from 'fp-ts/lib/Either'
 import { reporter } from 'io-ts-reporters'
 import {
@@ -52,10 +51,10 @@ export { validateMethod } from './Method'
 
 export const eitherToResult = <A>(
   either: E.Either<t.Errors, A>
-): Res.Result<string, A> =>
+): E.Either<string, A> =>
   either._tag === 'Left'
-    ? Res.failure(reporter(either).join('/n'))
-    : Res.success(either.right)
+    ? E.left(reporter(either).join('/n'))
+    : E.right(either.right)
 
 export const route = <
   Pieces extends AnyPieces,
@@ -130,12 +129,11 @@ const splitUrl = (whole: string): string[] =>
 export const validateRequestWithRoute = <
   Pieces extends AnyPieces,
   Headers extends AnyHeaders,
-  PostData extends t.Mixed,
-  A
+  PostData extends t.Mixed
 >(
   route: Route<Pieces, Headers, PostData>,
   request: Request
-): Res.Result<
+): E.Either<
   RouteErrors,
   RouteOutput<Pieces, Headers, PostData>
 > => {
@@ -157,18 +155,18 @@ export const validateRequestWithRoute = <
     request.headers
   )
   if (
-    Res.isSuccess(method) &&
-    Res.isSuccess(path) &&
-    Res.isSuccess(postData) &&
-    Res.isSuccess(headers)
+    E.isRight(method) &&
+    E.isRight(path) &&
+    E.isRight(postData) &&
+    E.isRight(headers)
   ) {
-    return Res.success({
-      path: path.value,
-      headers: headers.value,
-      postData: postData.value,
+    return E.right({
+      path: path.right,
+      headers: headers.right,
+      postData: postData.right,
     })
   }
-  return Res.failure({
+  return E.left({
     type: 'RouteErrors',
     method: failureOrMatch(method),
     path: failureOrMatch(path),
@@ -178,9 +176,9 @@ export const validateRequestWithRoute = <
 }
 
 const failureOrMatch = <Err, A>(
-  result: Res.Result<Err, A>
+  result: E.Either<Err, A>
 ): Err | 'match' =>
-  Res.matchResult<Err, A, Err | 'match'>(
+  E.fold<Err, A, Err | 'match'>(
     e => e,
     _ => 'match'
   )(result)

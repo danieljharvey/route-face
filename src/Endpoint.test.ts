@@ -1,8 +1,8 @@
-import * as J from './job/job'
-import * as E from './Endpoint'
+import * as EP from './Endpoint'
 import * as R from './router/Router'
-import * as Res from './result/Result'
 import * as t from 'io-ts'
+import * as E from 'fp-ts/Either'
+import * as TE from 'fp-ts/TaskEither'
 
 describe('Endpoint', () => {
   describe('get', () => {
@@ -14,24 +14,24 @@ describe('Endpoint', () => {
       .stringHeader('secret-token')
       .done()
 
-    const getSample = E.fromRoute(getRoute, ({ headers }) =>
-      J.fromResult(
-        headers['secret-token'] === 'costanza' ||
-          headers['secret-token'] === 'elaine'
-          ? Res.success('good')
-          : Res.failure('bad')
-      )
+    const getSample = EP.fromRoute(
+      getRoute,
+      ({ headers }) =>
+        TE.fromEither(
+          headers['secret-token'] === 'costanza' ||
+            headers['secret-token'] === 'elaine'
+            ? E.right('good')
+            : E.left('bad')
+        )
     )
 
     it('Runs a get endpoint and totally nails the password', done => {
-      J.runToPromise(
-        getSample({
-          method: 'get',
-          headers: { 'secret-token': 'costanza' },
-          url: '/posts/100/view/',
-          postData: {},
-        })
-      ).then(a => {
+      getSample({
+        method: 'get',
+        headers: { 'secret-token': 'costanza' },
+        url: '/posts/100/view/',
+        postData: {},
+      })().then(a => {
         expect(a).toEqual('good')
         done()
       })
@@ -53,26 +53,24 @@ describe('Endpoint', () => {
       .post(samplePostData)
       .done()
 
-    const postSample = E.fromRoute(
+    const postSample = EP.fromRoute(
       postRoute,
       ({ headers }) =>
-        J.fromResult(
+        TE.fromEither(
           headers['secret-token'] === 'costanza' ||
             headers['secret-token'] === 'elaine'
-            ? Res.success('good')
-            : Res.failure('bad')
+            ? E.right('good')
+            : E.left('bad')
         )
     )
 
     it('Runs a post endpoint and totally nails the password', done => {
-      J.runToPromise(
-        postSample({
-          method: 'post',
-          headers: { 'secret-token': 'costanza' },
-          url: '/posts/100/view/',
-          postData: { name: 'kramer', age: 200 },
-        })
-      ).then(a => {
+      postSample({
+        method: 'post',
+        headers: { 'secret-token': 'costanza' },
+        url: '/posts/100/view/',
+        postData: { name: 'kramer', age: 200 },
+      })().then(a => {
         expect(a).toEqual('good')
         done()
       })

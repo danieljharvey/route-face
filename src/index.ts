@@ -1,10 +1,12 @@
 import * as Koa from 'koa'
 import bodyParser from 'koa-bodyparser'
 
-import * as E from './Endpoint'
+import * as E from 'fp-ts/Either'
+import * as TE from 'fp-ts/TaskEither'
+
+import * as EP from './Endpoint'
 import * as R from './router/Router'
 import * as t from 'io-ts'
-import * as J from './job/job'
 import * as Res from './result/Result'
 
 // validator for data in our POST request
@@ -31,16 +33,16 @@ const getUser = E.makeEndpoint(
     .get()
     .stringHeader('authtoken')
     .done(),
-  ({ path: [_, userId], headers: { authtoken } }) =>
-    J.makeJob<string, APIReturn>((success, failure) => {
-      if (authtoken !== 'secretpassword') {
-        return failure('auth failure')
-      }
-      const user = userStore[userId]
-      user
-        ? success(user)
-        : failure(`User ${userId} not found!`)
-    })
+
+  ({ path: [_, userId], headers: { authtoken } }) => {
+    if (authtoken !== 'secretpassword') {
+      return TE.left('auth failure')
+    }
+    const user = userStore[userId]
+    user
+      ? TE.right(user)
+      : TE.left(`User ${userId} not found!`)
+  }
 )
 
 // save a user in the store
@@ -50,14 +52,13 @@ const postUser = E.makeEndpoint(
     .stringHeader('authtoken')
     .post(userValidator)
     .done(),
-  ({ headers: { authtoken }, postData: user }) =>
-    J.makeJob<string, APIReturn>((success, failure) => {
-      if (authtoken !== 'secretpassword') {
-        return failure('auth failure')
-      }
-      userStore[user.id] = user
-      return success('ok!')
-    })
+  ({ headers: { authtoken }, postData: user }) => {
+    if (authtoken !== 'secretpassword') {
+      return TE.left('auth failure')
+    }
+    userStore[user.id] = user
+    return TE.right('ok!')
+  }
 )
 
 // grab the stuff from the Koa context that we need
@@ -88,9 +89,7 @@ app.use(bodyParser())
 app.use(async (ctx: Koa.Context) => {
   const req = koaContextToRequest(ctx)
 
-  const result = Res.flatten(
-    await J.runToResolvingPromise(E.runAPI(api, req))
-  )
+  const result = Res.flatten(await E.runAPI(api, req)())
 
   ctx.body = result.body
   ctx.status = result.status

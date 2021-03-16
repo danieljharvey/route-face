@@ -1,9 +1,6 @@
 import * as R from './Router'
 import * as t from 'io-ts'
-import * as Res from '../result/Result'
-// import { getArbitrary } from 'fast-check-io-ts'
-// import fc from 'fast-check'
-import { NumberFromString } from 'io-ts-types/lib/NumberFromString'
+import * as E from 'fp-ts/Either'
 
 // an example route would be /dog/400/bog/
 const myRoute = R.makeRoute()
@@ -24,7 +21,7 @@ describe('Router4', () => {
       'oh',
       'well',
     ])
-    expect(Res.isSuccess(result)).toBeFalsy()
+    expect(E.isRight(result)).toBeFalsy()
   })
   it('Validates a path is right', () => {
     const result = R.validatePath(myRoute.pieces, [
@@ -32,7 +29,7 @@ describe('Router4', () => {
       '100',
       'bog',
     ])
-    expect(Res.isSuccess(result)).toBeTruthy()
+    expect(E.isRight(result)).toBeTruthy()
     expect(result.value).toEqual(['dog', 100, 'bog'])
   })
 
@@ -46,7 +43,7 @@ describe('Router4', () => {
       routeWithHeaders.pieces,
       ['dog', '100', 'bog']
     )
-    expect(Res.isSuccess(pathResult)).toBeTruthy()
+    expect(E.isRight(pathResult)).toBeTruthy()
   })
 
   it('Fails because a header is missing', () => {
@@ -54,7 +51,7 @@ describe('Router4', () => {
       routeWithHeaders.headers,
       {}
     )
-    expect(Res.isSuccess(headerResult)).toBeFalsy()
+    expect(E.isRight(headerResult)).toBeFalsy()
   })
 
   it('Succeds when headers are provided', () => {
@@ -65,7 +62,7 @@ describe('Router4', () => {
         'x-user-id': '123123',
       }
     )
-    expect(Res.isSuccess(headerResult)).toBeTruthy()
+    expect(E.isRight(headerResult)).toBeTruthy()
     expect(headerResult.value).toEqual({
       'x-user-name': 'DOGMAN',
       'x-user-id': 123123,
@@ -82,14 +79,14 @@ describe('validateRequestWithRoute', () => {
       postData: {},
     })
 
-    expect(Res.isFailure(result)).toBeTruthy()
+    expect(E.isLeft(result)).toBeTruthy()
 
-    if (Res.isFailure(result)) {
+    if (E.isLeft(result)) {
       const pathMatches =
         (result.value.path !== 'match' &&
           result.value.path.matches) ||
         []
-      expect(Res.isSuccess(pathMatches[0])).toBeTruthy()
+      expect(R.isRight(pathMatches[0])).toBeTruthy()
       expect(pathMatches[1]).toEqual(
         Res.failure({
           expected: 'NumberFromString',
@@ -113,9 +110,9 @@ describe('validateRequestWithRoute', () => {
       postData: {},
     })
 
-    expect(Res.isFailure(result)).toBeTruthy()
+    expect(E.isLeft(result)).toBeTruthy()
 
-    if (Res.isFailure(result)) {
+    if (E.isLeft(result)) {
       const error = result.value.method
       expect(error).toEqual({
         type: 'MethodError',
@@ -145,8 +142,8 @@ describe('validateRequestWithRoute', () => {
       }
     )
 
-    expect(Res.isFailure(result)).toBeTruthy()
-    if (Res.isFailure(result)) {
+    expect(E.isLeft(result)).toBeTruthy()
+    if (E.isLeft(result)) {
       const matches =
         (result.value.headers !== 'match' &&
           result.value.headers.matches) ||
@@ -173,8 +170,10 @@ describe('validateRequestWithRoute', () => {
       method: 'get',
       postData: { blah: 'blah' },
     })
-    expect(Res.isFailure(result)).toBeTruthy()
-    expect(result.value.postData).toEqual('match')
+    expect(E.isLeft(result)).toBeTruthy()
+    expect(
+      E.isLeft(result) && result.left.postData
+    ).toEqual('match')
   })
 
   it('Returns list of validation errors for postData with a Post request', () => {
@@ -187,33 +186,13 @@ describe('validateRequestWithRoute', () => {
       method: 'done',
       postData: { name: 'blah' },
     })
-    expect(Res.isFailure(result)).toBeTruthy()
-    if (Res.isFailure(result)) {
+    expect(E.isLeft(result)).toBeTruthy()
+    if (E.isLeft(result)) {
       const errors =
-        (result.value.postData !== 'match' &&
-          result.value.postData.errors) ||
+        (result.left.postData !== 'match' &&
+          result.left.postData.errors) ||
         []
       expect(errors).toHaveLength(1)
     }
   })
 })
-
-// the arbitraries we are using is broken
-// re-enable this test once we are using our own validators
-/*
- * const myRouteArb = getArbitrary(
-  t.tuple(myRoute.pieces) as any
-)
-
-describe('Router4', () => {
-  it('Creates arbitrary valid endpoints', () => {
-    fc.assert(
-      fc.property(myRouteArb, (arb) => {
-        const stringPieces = arb.map(String)
-        const validated = R.validate(myRoute, stringPieces)
-        return Res.isSuccess(validated)
-      })
-    )
-  })
-})
-*/
